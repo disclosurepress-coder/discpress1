@@ -304,7 +304,7 @@ function escapeHTML(str) {
 function generateHeadlineHTML() {
     return stories.map(story => {
         const colorClass = story.color ? " " + story.color : "";
-        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}">${escapeHTML(story.headline)}</a></div>`;
+        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(story.headline)}</a></div>`;
     }).join("\n");
 }
 
