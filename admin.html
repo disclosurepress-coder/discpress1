@@ -81,6 +81,13 @@ button:hover {
     font-size: 17px;
 }
 
+.story-subtitle {
+    font-size: 13px;
+    color: #555;
+    margin-top: 3px;
+    word-break: break-all;
+}
+
 .red { color: red; }
 .blue { color: blue; }
 .green { color: green; }
@@ -114,19 +121,19 @@ button:hover {
     <h1>DISCLOSURE PRESS ADMIN</h1>
 
     <div class="warning">
-        <strong>How publishing works:</strong> this dashboard updates your <code>index.html</code> file in GitHub. If your Cloudflare Pages site is connected to that GitHub repository, Cloudflare will automatically redeploy the live site after you click <strong>Publish Live</strong>.
+        <strong>How publishing works:</strong> this dashboard updates your <code>index.html</code> file in GitHub. If Cloudflare is connected to that GitHub repository, it should automatically redeploy the live site after you click <strong>Publish Live</strong>.
     </div>
 
     <h2>GitHub Publishing Settings</h2>
 
     <div class="form-row">
         <label for="githubOwner">GitHub Username / Organization</label>
-        <input id="githubOwner" type="text" placeholder="Example: victorpantin" />
+        <input id="githubOwner" type="text" placeholder="Example: disclosurepress-coder" />
     </div>
 
     <div class="form-row">
         <label for="githubRepo">Repository Name</label>
-        <input id="githubRepo" type="text" placeholder="Example: disclosure-press" />
+        <input id="githubRepo" type="text" placeholder="Example: discpress1" />
     </div>
 
     <div class="form-row">
@@ -142,7 +149,7 @@ button:hover {
     <div class="form-row">
         <label for="githubToken">GitHub Fine-Grained Personal Access Token</label>
         <input id="githubToken" type="password" placeholder="Paste token here" />
-        <p class="note">Use a fine-grained token limited to this one repository with <strong>Contents: Read and Write</strong>. The token is saved only in this browser using localStorage.</p>
+        <p class="note">Use a fine-grained token limited to this one repository with <strong>Contents: Read and Write</strong>. Metadata can stay <strong>Read-only</strong>. The token is saved only in this browser using localStorage.</p>
     </div>
 
     <div class="actions">
@@ -175,19 +182,45 @@ button:hover {
 
     <div class="actions">
         <button onclick="addStory()">Add Headline</button>
-        <button onclick="publishLive()">Publish Live</button>
-        <button onclick="clearAll()">Clear All</button>
     </div>
 
-    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use ↑ and ↓ to reorder stories.</p>
-
     <div id="storyList" class="story-list"></div>
+
+    <hr />
+
+    <h2>Add Video</h2>
+
+    <div class="form-row">
+        <label for="videoTitle">Video Title</label>
+        <input id="videoTitle" type="text" placeholder="Example: Ross Coulthart Discusses New Disclosure Claims" />
+    </div>
+
+    <div class="form-row">
+        <label for="videoUrl">YouTube URL</label>
+        <input id="videoUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+    </div>
+
+    <div class="actions">
+        <button onclick="addVideo()">Add Video</button>
+    </div>
+
+    <div id="videoList" class="story-list"></div>
+
+    <hr />
+
+    <div class="actions">
+        <button onclick="publishLive()">Publish Live</button>
+        <button onclick="clearAll()">Clear All Headlines & Videos</button>
+    </div>
+
+    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use ↑ and ↓ to reorder stories or videos.</p>
 
     <div class="status" id="status">Status: Ready.</div>
 </div>
 
 <script>
 let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
+let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
 let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {};
 
 function loadSettings() {
@@ -213,6 +246,7 @@ function saveSettings() {
 
 function saveDraft() {
     localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
+    localStorage.setItem("disclosurePressVideos", JSON.stringify(videos));
 }
 
 function setStatus(message) {
@@ -228,6 +262,283 @@ function addStory() {
         alert("Please enter both a headline and a URL.");
         return;
     }
+
+    stories.push({ headline, url, color });
+    saveDraft();
+    renderStories();
+
+    document.getElementById("headline").value = "";
+    document.getElementById("url").value = "";
+    document.getElementById("color").value = "";
+}
+
+function addVideo() {
+    const title = document.getElementById("videoTitle").value.trim();
+    const url = document.getElementById("videoUrl").value.trim();
+
+    if (!title || !url) {
+        alert("Please enter both a video title and a YouTube URL.");
+        return;
+    }
+
+    videos.push({ title, url });
+    saveDraft();
+    renderVideos();
+
+    document.getElementById("videoTitle").value = "";
+    document.getElementById("videoUrl").value = "";
+}
+
+function renderStories() {
+    const list = document.getElementById("storyList");
+    list.innerHTML = "";
+
+    stories.forEach((story, index) => {
+        const item = document.createElement("div");
+        item.className = "story-item";
+
+        const titleWrap = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "story-title " + story.color;
+        title.textContent = story.headline;
+        const subtitle = document.createElement("div");
+        subtitle.className = "story-subtitle";
+        subtitle.textContent = story.url;
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(subtitle);
+
+        const up = document.createElement("button");
+        up.textContent = "↑";
+        up.onclick = () => moveStory(index, -1);
+
+        const down = document.createElement("button");
+        down.textContent = "↓";
+        down.onclick = () => moveStory(index, 1);
+
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = () => deleteStory(index);
+
+        item.appendChild(titleWrap);
+        item.appendChild(up);
+        item.appendChild(down);
+        item.appendChild(del);
+        list.appendChild(item);
+    });
+}
+
+function renderVideos() {
+    const list = document.getElementById("videoList");
+    list.innerHTML = "";
+
+    videos.forEach((video, index) => {
+        const item = document.createElement("div");
+        item.className = "story-item";
+
+        const titleWrap = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "story-title";
+        title.textContent = video.title;
+        const subtitle = document.createElement("div");
+        subtitle.className = "story-subtitle";
+        subtitle.textContent = video.url;
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(subtitle);
+
+        const up = document.createElement("button");
+        up.textContent = "↑";
+        up.onclick = () => moveVideo(index, -1);
+
+        const down = document.createElement("button");
+        down.textContent = "↓";
+        down.onclick = () => moveVideo(index, 1);
+
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = () => deleteVideo(index);
+
+        item.appendChild(titleWrap);
+        item.appendChild(up);
+        item.appendChild(down);
+        item.appendChild(del);
+        list.appendChild(item);
+    });
+}
+
+function moveStory(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= stories.length) return;
+    [stories[index], stories[newIndex]] = [stories[newIndex], stories[index]];
+    saveDraft();
+    renderStories();
+}
+
+function moveVideo(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= videos.length) return;
+    [videos[index], videos[newIndex]] = [videos[newIndex], videos[index]];
+    saveDraft();
+    renderVideos();
+}
+
+function deleteStory(index) {
+    stories.splice(index, 1);
+    saveDraft();
+    renderStories();
+}
+
+function deleteVideo(index) {
+    videos.splice(index, 1);
+    saveDraft();
+    renderVideos();
+}
+
+function clearAll() {
+    if (!confirm("Clear all saved headlines and videos?")) return;
+    stories = [];
+    videos = [];
+    saveDraft();
+    renderStories();
+    renderVideos();
+}
+
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+    }[tag]));
+}
+
+function getYouTubeId(url) {
+    const patterns = [
+        /youtube\.com\/watch\?v=([^&]+)/,
+        /youtu\.be\/([^?&]+)/,
+        /youtube\.com\/embed\/([^?&]+)/,
+        /youtube\.com\/shorts\/([^?&]+)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+    }
+
+    return null;
+}
+
+function getEmbedUrl(url) {
+    const id = getYouTubeId(url);
+    return id ? `https://www.youtube.com/embed/${id}` : url;
+}
+
+function generateHeadlineHTML() {
+    return stories.map(story => {
+        const colorClass = story.color ? " " + story.color : "";
+        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(story.headline)}</a></div>`;
+    }).join("\n");
+}
+
+function generateVideoHTML() {
+    return videos.map(video => {
+        const embedUrl = getEmbedUrl(video.url);
+        return `<div class="video">\n<iframe src="${escapeHTML(embedUrl)}" allowfullscreen></iframe>\n<div class="video-title">${escapeHTML(video.title)}</div>\n</div>`;
+    }).join("\n");
+}
+
+async function publishLive() {
+    saveSettings();
+
+    if (!settings.owner || !settings.repo || !settings.branch || !settings.path || !settings.token) {
+        alert("Please complete and save your GitHub publishing settings first.");
+        return;
+    }
+
+    setStatus("Fetching current site file from GitHub...");
+
+    const apiUrl = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${settings.path}?ref=${settings.branch}`;
+
+    const getResponse = await fetch(apiUrl, {
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json"
+        }
+    });
+
+    if (!getResponse.ok) {
+        setStatus("Error fetching file. Check owner, repo, branch, file path, and token permissions.");
+        return;
+    }
+
+    const fileData = await getResponse.json();
+    const currentHTML = decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))));
+
+    const headlineStart = "<!-- HEADLINES START -->";
+    const headlineEnd = "<!-- HEADLINES END -->";
+    const videoStart = "<!-- VIDEOS START -->";
+    const videoEnd = "<!-- VIDEOS END -->";
+
+    if (!currentHTML.includes(headlineStart) || !currentHTML.includes(headlineEnd)) {
+        setStatus("Error: index.html needs HEADLINES START and HEADLINES END markers.");
+        alert("Your index.html file must contain these exact markers:\n\n<!-- HEADLINES START -->\n<!-- HEADLINES END -->");
+        return;
+    }
+
+    if (!currentHTML.includes(videoStart) || !currentHTML.includes(videoEnd)) {
+        setStatus("Error: index.html needs VIDEOS START and VIDEOS END markers.");
+        alert("Your index.html file must contain these exact markers around your video section:\n\n<!-- VIDEOS START -->\n<!-- VIDEOS END -->");
+        return;
+    }
+
+    const headlineHTML = generateHeadlineHTML();
+    const videoHTML = generateVideoHTML();
+
+    let updatedHTML = currentHTML.replace(
+        new RegExp(`${headlineStart}[\\s\\S]*?${headlineEnd}`),
+        `${headlineStart}\n${headlineHTML}\n${headlineEnd}`
+    );
+
+    updatedHTML = updatedHTML.replace(
+        new RegExp(`${videoStart}[\\s\\S]*?${videoEnd}`),
+        `${videoStart}\n${videoHTML}\n${videoEnd}`
+    );
+
+    setStatus("Publishing updated headlines and videos to GitHub...");
+
+    const encodedContent = btoa(unescape(encodeURIComponent(updatedHTML)));
+
+    const putResponse = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: "Update Disclosure Press headlines and videos",
+            content: encodedContent,
+            sha: fileData.sha,
+            branch: settings.branch
+        })
+    });
+
+    if (!putResponse.ok) {
+        setStatus("Error publishing. Token may lack Contents: Read and Write permission.");
+        return;
+    }
+
+    setStatus("Published successfully. Cloudflare should redeploy your site automatically.");
+}
+
+loadSettings();
+renderStories();
+renderVideos();
+</script>
+
+</body>
+</html>
+
 
     stories.push({ headline, url, color });
     saveDraft();
