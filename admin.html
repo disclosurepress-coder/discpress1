@@ -443,18 +443,23 @@ function generateHeadlineHTML() {
 function generateVideoHTML() {
     return videos.map(video => {
         const id = getYouTubeId(video.url);
-        const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
-        const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+
+        const watchUrl = id
+            ? `https://www.youtube.com/watch?v=${id}`
+            : video.url;
+
+        const thumbnailUrl = id
+            ? `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+            : "";
 
         return `<div class="video">
 <a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
-<img src="${escapeHTML(thumbnailUrl)}" alt="${escapeHTML(video.title)}" class="video-thumb">
+<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb">
 </a>
 <div class="video-title">${escapeHTML(video.title)}</div>
 </div>`;
     }).join("\n");
 }
-
 async function publishLive() {
     saveSettings();
 
