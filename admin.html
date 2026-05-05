@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Disclosure Press Admin</title>
+<style>
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    color: #000;
+}
+
+.admin-wrap {
+    max-width: 950px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 20px;
+}
+
+h1, h2 {
+    text-align: center;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-top: 12px;
+}
+
+input, select, button, textarea {
+    font-size: 16px;
+    padding: 8px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+input, select, textarea {
+    width: 100%;
+}
+
+button {
+    cursor: pointer;
+    border: 1px solid #000;
+    background: #fff;
+}
+
+button:hover {
+    background: #eee;
+}
+
+.form-row {
+    margin-bottom: 10px;
+}
+
+.actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.story-list {
+    margin-top: 25px;
+    border-top: 1px solid #ccc;
+}
+
+.story-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.story-title {
+    font-size: 17px;
+}
+
+.red { color: red; }
+.blue { color: blue; }
+.green { color: green; }
+
+.note {
+    font-size: 14px;
+    color: #555;
+    margin-top: 8px;
+    line-height: 1.4;
+}
+
+.status {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    min-height: 20px;
+}
+
+.warning {
+    background: #fff5d6;
+    border: 1px solid #d8b100;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+</style>
+</head>
+<body>
+
+<div class="admin-wrap">
+    <h1>DISCLOSURE PRESS ADMIN</h1>
+
+    <div class="warning">
+        <strong>How publishing works:</strong> this dashboard updates your <code>index.html</code> file in GitHub. If your Cloudflare Pages site is connected to that GitHub repository, Cloudflare will automatically redeploy the live site after you click <strong>Publish Live</strong>.
+    </div>
+
+    <h2>GitHub Publishing Settings</h2>
+
+    <div class="form-row">
+        <label for="githubOwner">GitHub Username / Organization</label>
+        <input id="githubOwner" type="text" placeholder="Example: victorpantin" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubRepo">Repository Name</label>
+        <input id="githubRepo" type="text" placeholder="Example: disclosure-press" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubBranch">Branch</label>
+        <input id="githubBranch" type="text" value="main" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubPath">File to Update</label>
+        <input id="githubPath" type="text" value="index.html" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubToken">GitHub Fine-Grained Personal Access Token</label>
+        <input id="githubToken" type="password" placeholder="Paste token here" />
+        <p class="note">Use a fine-grained token limited to this one repository with <strong>Contents: Read and Write</strong>. The token is saved only in this browser using localStorage.</p>
+    </div>
+
+    <div class="actions">
+        <button onclick="saveSettings()">Save Publishing Settings</button>
+    </div>
+
+    <hr />
+
+    <h2>Add Headline</h2>
+
+    <div class="form-row">
+        <label for="headline">Headline</label>
+        <input id="headline" type="text" placeholder="Example: Pentagon Confirms New UAP Briefing" />
+    </div>
+
+    <div class="form-row">
+        <label for="url">Link URL</label>
+        <input id="url" type="text" placeholder="https://example.com/article" />
+    </div>
+
+    <div class="form-row">
+        <label for="color">Headline Color</label>
+        <select id="color">
+            <option value="">Black / Default</option>
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+        </select>
+    </div>
+
+    <div class="actions">
+        <button onclick="addStory()">Add Headline</button>
+        <button onclick="publishLive()">Publish Live</button>
+        <button onclick="clearAll()">Clear All</button>
+    </div>
+
+    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use ↑ and ↓ to reorder stories.</p>
+
+    <div id="storyList" class="story-list"></div>
+
+    <div class="status" id="status">Status: Ready.</div>
+</div>
+
+<script>
+let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
+let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {};
+
+function loadSettings() {
+    document.getElementById("githubOwner").value = settings.owner || "";
+    document.getElementById("githubRepo").value = settings.repo || "";
+    document.getElementById("githubBranch").value = settings.branch || "main";
+    document.getElementById("githubPath").value = settings.path || "index.html";
+    document.getElementById("githubToken").value = settings.token || "";
+}
+
+function saveSettings() {
+    settings = {
+        owner: document.getElementById("githubOwner").value.trim(),
+        repo: document.getElementById("githubRepo").value.trim(),
+        branch: document.getElementById("githubBranch").value.trim() || "main",
+        path: document.getElementById("githubPath").value.trim() || "index.html",
+        token: document.getElementById("githubToken").value.trim()
+    };
+
+    localStorage.setItem("disclosurePressSettings", JSON.stringify(settings));
+    setStatus("Publishing settings saved.");
+}
+
+function saveDraft() {
+    localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
+}
+
+function setStatus(message) {
+    document.getElementById("status").textContent = "Status: " + message;
+}
+
+function addStory() {
+    const headline = document.getElementById("headline").value.trim();
+    const url = document.getElementById("url").value.trim();
+    const color = document.getElementById("color").value;
+
+    if (!headline || !url) {
+        alert("Please enter both a headline and a URL.");
+        return;
+    }
+
+    stories.push({ headline, url, color });
+    saveDraft();
+    renderStories();
+
+    document.getElementById("headline").value = "";
+    document.getElementById("url").value = "";
+    document.getElementById("color").value = "";
+}
+
+function renderStories() {
+    const list = document.getElementById("storyList");
+    list.innerHTML = "";
+
+    stories.forEach((story, index) => {
+        const item = document.createElement("div");
+        item.className = "story-item";
+
+        const title = document.createElement("div");
+        title.className = "story-title " + story.color;
+        title.textContent = story.headline;
+
+        const up = document.createElement("button");
+        up.textContent = "↑";
+        up.onclick = () => moveStory(index, -1);
+
+        const down = document.createElement("button");
+        down.textContent = "↓";
+        down.onclick = () => moveStory(index, 1);
+
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = () => deleteStory(index);
+
+        item.appendChild(title);
+        item.appendChild(up);
+        item.appendChild(down);
+        item.appendChild(del);
+        list.appendChild(item);
+    });
+}
+
+function moveStory(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= stories.length) return;
+    [stories[index], stories[newIndex]] = [stories[newIndex], stories[index]];
+    saveDraft();
+    renderStories();
+}
+
+function deleteStory(index) {
+    stories.splice(index, 1);
+    saveDraft();
+    renderStories();
+}
+
+function clearAll() {
+    if (!confirm("Clear all saved headlines?")) return;
+    stories = [];
+    saveDraft();
+    renderStories();
+}
+
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+    }[tag]));
+}
+
+function generateHeadlineHTML() {
+    return stories.map(story => {
+        const colorClass = story.color ? " " + story.color : "";
+        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}">${escapeHTML(story.headline)}</a></div>`;
+    }).join("\n");
+}
+
+async function publishLive() {
+    saveSettings();
+
+    if (!settings.owner || !settings.repo || !settings.branch || !settings.path || !settings.token) {
+        alert("Please complete and save your GitHub publishing settings first.");
+        return;
+    }
+
+    setStatus("Fetching current site file from GitHub...");
+
+    const apiUrl = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${settings.path}?ref=${settings.branch}`;
+
+    const getResponse = await fetch(apiUrl, {
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json"
+        }
+    });
+
+    if (!getResponse.ok) {
+        setStatus("Error fetching file. Check owner, repo, branch, file path, and token permissions.");
+        return;
+    }
+
+    const fileData = await getResponse.json();
+    const currentHTML = decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))));
+
+    const startMarker = "<!-- HEADLINES START -->";
+    const endMarker = "<!-- HEADLINES END -->";
+
+    if (!currentHTML.includes(startMarker) || !currentHTML.includes(endMarker)) {
+        setStatus("Error: index.html needs HEADLINES START and HEADLINES END markers.");
+        alert("Your index.html file must contain these exact markers:\n\n<!-- HEADLINES START -->\n<!-- HEADLINES END -->");
+        return;
+    }
+
+    const newHeadlineHTML = generateHeadlineHTML();
+    const updatedHTML = currentHTML.replace(
+        new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`),
+        `${startMarker}\n${newHeadlineHTML}\n${endMarker}`
+    );
+
+    setStatus("Publishing updated headlines to GitHub...");
+
+    const encodedContent = btoa(unescape(encodeURIComponent(updatedHTML)));
+
+    const putResponse = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: "Update Disclosure Press headlines",
+            content: encodedContent,
+            sha: fileData.sha,
+            branch: settings.branch
+        })
+    });
+
+    if (!putResponse.ok) {
+        setStatus("Error publishing. Token may lack Contents: Read and Write permission.");
+        return;
+    }
+
+    setStatus("Published successfully. Cloudflare Pages should redeploy your site automatically.");
+}
+
+loadSettings();
+renderStories();
+</script>
+
+</body>
+</html>
