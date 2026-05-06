@@ -717,6 +717,7 @@ async function publishLive() {
 function enableDragAndDrop() {
     new Sortable(document.getElementById("storyList"), {
         animation: 150,
+        handle: ".drag-handle",
         onEnd: function (evt) {
             const movedItem = stories.splice(evt.oldIndex, 1)[0];
             stories.splice(evt.newIndex, 0, movedItem);
