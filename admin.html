@@ -576,6 +576,10 @@ function renderStories() {
         const item = document.createElement("div");
         item.className = "story-item";
 
+        const handle = document.createElement("div");
+        handle.className = "drag-handle";
+        handle.textContent = "☰";
+
         const title = document.createElement("div");
         title.className = "story-title " + story.color;
         title.textContent = story.headline;
@@ -592,10 +596,12 @@ function renderStories() {
         del.textContent = "Delete";
         del.onclick = () => deleteStory(index);
 
+        item.appendChild(handle);
         item.appendChild(title);
         item.appendChild(up);
         item.appendChild(down);
         item.appendChild(del);
+
         list.appendChild(item);
     });
 }
