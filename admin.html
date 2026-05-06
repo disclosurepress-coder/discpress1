@@ -281,7 +281,7 @@ function addVideo() {
         return;
     }
 
-    videos.push({ title, url });
+    videos.unshift({ title, url });
     saveDraft();
     renderVideos();
 
