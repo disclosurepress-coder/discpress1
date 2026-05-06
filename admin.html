@@ -263,7 +263,7 @@ function addStory() {
         return;
     }
 
-    stories.push({ headline, url, color });
+    stories.unshift({ headline, url, color });
     saveDraft();
     renderStories();
 
