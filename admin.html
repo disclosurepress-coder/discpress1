@@ -218,6 +218,8 @@ button:hover {
     <div class="status" id="status">Status: Ready.</div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    
 <script>
 let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
 let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
@@ -696,8 +698,24 @@ async function publishLive() {
     setStatus("Published successfully. Cloudflare Pages should redeploy your site automatically.");
 }
 
+
+function enableDragAndDrop() {
+    new Sortable(document.getElementById("storyList"), {
+        animation: 150,
+        onEnd: function (evt) {
+            const movedItem = stories.splice(evt.oldIndex, 1)[0];
+            stories.splice(evt.newIndex, 0, movedItem);
+            saveDraft();
+            renderStories();
+            enableDragAndDrop();
+        }
+    });
+}
+            
 loadSettings();
 renderStories();
+renderVideos();
+enableDragAndDrop();
 </script>
 
 </body>
