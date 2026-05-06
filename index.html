@@ -105,7 +105,65 @@ body {
     .headline {
         font-size: 18px;
     }
+
+    @media (max-width: 768px) {
+
+    body {
+        overflow: hidden;
+    }
+
+    .container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header {
+        flex: 0 0 auto;
+    }
+
+    .columns {
+        flex: 1 1 auto;
+        overflow: hidden;
+        display: block;
+    }
+
+    .left {
+        height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding-bottom: 10px;
+    }
+
+    .right {
+        display: none;
+    }
+
+    .mobile-video-dock {
+        display: block;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 2px solid #000;
+        padding: 6px 10px;
+        z-index: 999;
+    }
+
+    .mobile-video-dock .video-thumb {
+        max-width: 120px;
+    }
+
+    .mobile-video-dock .video-title {
+        font-size: 12px;
+    }
 }
+}
+
+    .mobile-video-dock {
+    display: none;
+}
+    
 </style>
 </head>
 
@@ -192,6 +250,15 @@ body {
 </div>
 
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9cd0e802c50b4a9a81e64d0528dd3b68"}'></script><!-- End Cloudflare Web Analytics -->
+
+<div class="mobile-video-dock">
+    <div class="video">
+        <a href="https://www.youtube.com/watch?v=VIDEO_ID" target="_blank" rel="noopener noreferrer">
+            <img src="https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg" class="video-thumb">
+        </a>
+        <div class="video-title">Latest video</div>
+    </div>
+</div>
     
 </body>
 </html>
