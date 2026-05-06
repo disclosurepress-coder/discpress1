@@ -93,21 +93,11 @@ body {
     margin-top: 4px;
 }
 
+.mobile-video-dock {
+    display: none;
+}
+
 @media (max-width: 768px) {
-    .header {
-        font-size: 34px;
-    }
-
-    .columns {
-        flex-direction: column;
-    }
-
-    .headline {
-        font-size: 18px;
-    }
-
-    @media (max-width: 768px) {
-
     body {
         overflow: hidden;
     }
@@ -119,6 +109,7 @@ body {
     }
 
     .header {
+        font-size: 34px;
         flex: 0 0 auto;
     }
 
@@ -136,6 +127,10 @@ body {
 
     .right {
         display: none;
+    }
+
+    .headline {
+        font-size: 18px;
     }
 
     .mobile-video-dock {
@@ -157,11 +152,6 @@ body {
     .mobile-video-dock .video-title {
         font-size: 12px;
     }
-}
-}
-
-    .mobile-video-dock {
-    display: none;
 }
     
 </style>
