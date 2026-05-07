@@ -79,11 +79,15 @@ button:hover {
 
 .story-item {
     display: grid;
-    grid-template-columns: auto 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) 44px 44px 70px 80px;
     gap: 8px;
     align-items: center;
     padding: 10px 0;
     border-bottom: 1px solid #ddd;
+}
+
+.story-item button {
+    width: 100%;
 }
 
 .story-title {
@@ -189,9 +193,12 @@ button:hover {
         </select>
     </div>
 
-    <div class="actions">
-        <button onclick="addStory()">Add Headline</button>
-    </div>
+    <input id="headlineEditIndex" type="hidden" value="" />
+
+<div class="actions">
+    <button id="headlineSubmitButton" onclick="addStory()">Add Headline</button>
+    <button id="cancelHeadlineEditButton" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
+</div>
 
     <div id="storyList" class="story-list"></div>
 
@@ -268,21 +275,25 @@ function addStory() {
     const headline = document.getElementById("headline").value.trim();
     const url = document.getElementById("url").value.trim();
     const color = document.getElementById("color").value;
+    const editIndex = document.getElementById("headlineEditIndex").value;
 
     if (!headline || !url) {
         alert("Please enter both a headline and a URL.");
         return;
     }
 
-    stories.unshift({ headline, url, color });
+    if (editIndex !== "") {
+        stories[Number(editIndex)] = { headline, url, color };
+        setStatus("Headline updated.");
+    } else {
+        stories.unshift({ headline, url, color });
+        setStatus("Headline added.");
+    }
+
     saveDraft();
     renderStories();
-
-    document.getElementById("headline").value = "";
-    document.getElementById("url").value = "";
-    document.getElementById("color").value = "";
+    cancelHeadlineEdit();
 }
-
 function addVideo() {
     const title = document.getElementById("videoTitle").value.trim();
     const url = document.getElementById("videoUrl").value.trim();
@@ -312,9 +323,11 @@ function renderStories() {
         const title = document.createElement("div");
         title.className = "story-title " + story.color;
         title.textContent = story.headline;
+
         const subtitle = document.createElement("div");
         subtitle.className = "story-subtitle";
         subtitle.textContent = story.url;
+
         titleWrap.appendChild(title);
         titleWrap.appendChild(subtitle);
 
@@ -326,6 +339,10 @@ function renderStories() {
         down.textContent = "↓";
         down.onclick = () => moveStory(index, 1);
 
+        const edit = document.createElement("button");
+        edit.textContent = "Edit";
+        edit.onclick = () => editStory(index);
+
         const del = document.createElement("button");
         del.textContent = "Delete";
         del.onclick = () => deleteStory(index);
@@ -333,11 +350,12 @@ function renderStories() {
         item.appendChild(titleWrap);
         item.appendChild(up);
         item.appendChild(down);
+        item.appendChild(edit);
         item.appendChild(del);
+
         list.appendChild(item);
     });
 }
-
 function renderVideos() {
     const list = document.getElementById("videoList");
     list.innerHTML = "";
@@ -376,6 +394,33 @@ function renderVideos() {
     });
 }
 
+function editStory(index) {
+    const story = stories[index];
+
+    document.getElementById("headline").value = story.headline;
+    document.getElementById("url").value = story.url;
+    document.getElementById("color").value = story.color || "";
+
+    document.getElementById("headlineEditIndex").value = index;
+    document.getElementById("headlineSubmitButton").textContent = "Save Headline";
+    document.getElementById("cancelHeadlineEditButton").style.display = "inline-block";
+
+    setStatus("Editing headline. Make changes, then click Save Headline.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cancelHeadlineEdit() {
+    document.getElementById("headline").value = "";
+    document.getElementById("url").value = "";
+    document.getElementById("color").value = "";
+    document.getElementById("headlineEditIndex").value = "";
+
+    document.getElementById("headlineSubmitButton").textContent = "Add Headline";
+    document.getElementById("cancelHeadlineEditButton").style.display = "none";
+
+    setStatus("Headline edit canceled.");
+}
+    
 function moveStory(index, direction) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= stories.length) return;
@@ -592,4 +637,3 @@ renderVideos();
 </html>
 
 
-    </html>
