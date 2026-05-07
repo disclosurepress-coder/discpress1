@@ -516,6 +516,7 @@ async function publishLive() {
 
     const headlineHTML = generateHeadlineHTML();
     const videoHTML = generateVideoHTML();
+    const mobileVideoHTML = generateMobileVideoHTML();
 
     let updatedHTML = currentHTML.replace(
         new RegExp(`${headlineStart}[\\s\\S]*?${headlineEnd}`),
