@@ -113,9 +113,6 @@ body {
     word-wrap: break-word;
 }
 
-.mobile-video-dock {
-    display: block !important;
-}
 
 @media (max-width: 768px) {
     body {
@@ -153,8 +150,9 @@ body {
         font-size: 18px;
     }
 
-    .mobile-video-dock {
-        display: block;
+        .mobile-video-dock {
+        display: flex;
+        gap: 10px;
         position: fixed;
         bottom: 0;
         left: 0;
@@ -163,9 +161,28 @@ body {
         border-top: 2px solid #000;
         padding: 6px 10px;
         z-index: 999;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+    }
+
+    .mobile-video-dock .video {
+        flex: 0 0 120px;
+        margin-bottom: 0;
+        scroll-snap-align: start;
     }
 
     .mobile-video-dock .video-thumb {
+        width: 120px;
+        max-width: 120px;
+    }
+
+    .mobile-video-dock .video-title {
+        display: block;
+        font-size: 12px;
+        line-height: 1.1;
+        max-width: 120px;
+        word-wrap: break-word;
+    }    .mobile-video-dock .video-thumb {
         max-width: 120px;
     }
 
