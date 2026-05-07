@@ -104,23 +104,6 @@ button:hover {
 
 <script>
 
-const mockResults = [
-    {
-        title: "Pentagon officials discuss new UAP reporting standards",
-        source: "Mock Source",
-        url: "https://example.com/story1"
-    },
-    {
-        title: "Congressional staff reportedly reviewing classified UAP material",
-        source: "Mock Source",
-        url: "https://example.com/story2"
-    },
-    {
-        title: "New whistleblower interview gains traction online",
-        source: "Mock Source",
-        url: "https://example.com/story3"
-    }
-];
 
 function setStatus(message) {
     document.getElementById("status").textContent = "Status: " + message;
@@ -167,23 +150,39 @@ function renderResults(results) {
 }
 
 function approveResult(index) {
-    alert("Approved: " + mockResults[index].title);
-}
+     alert("Approved: " + currentResults[index].title);
 
 function rejectResult(index) {
-    alert("Rejected: " + mockResults[index].title);
-}
+     alert("Rejected: " + currentResults[index].title);
+
+let currentResults = [];
 
 async function fetchUAPHeadlines() {
-    const apiKey = '66434ba8158f467e8edcc165fd47f8a5';
-    const url = `https://newsapi.org/v2/everything?q=UAP OR UFO&apiKey=${apiKey}`;
+
+    const apiKey = 'YOUR_API_KEY';
+
+    const url = `https://newsapi.org/v2/everything?q=(UAP OR UFO OR disclosure OR NHI)&language=en&sortBy=publishedAt&pageSize=20&apiKey=${apiKey}`;
 
     try {
+
         const response = await fetch(url);
         const data = await response.json();
-        console.log(data.articles);
+
+        currentResults = data.articles.map(article => ({
+            title: article.title || "No title",
+            source: article.source?.name || "Unknown source",
+            url: article.url || "#"
+        }));
+
+        renderResults(currentResults);
+
+        setStatus(`Scout completed. ${currentResults.length} articles found.`);
+
     } catch (error) {
+
         console.error('Error fetching headlines:', error);
+
+        setStatus("Error fetching headlines.");
     }
 }
 
