@@ -156,10 +156,10 @@ body {
     overflow-x: hidden;
 }
 
-    .container {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
+        .container {
+        min-height: 100vh;
+        display: block;
+        padding-bottom: 260px;
     }
 
     .header {
@@ -173,17 +173,15 @@ body {
     margin-bottom: 12px;
 }
     
-    .columns {
-        flex: 1 1 auto;
-        overflow: hidden;
+        .columns {
         display: block;
     }
 
-    .left {
-    height: calc(100vh - 230px);
-    overflow-y: auto;
-    padding-bottom: 300px;
-}
+       .left {
+        overflow: visible;
+        height: auto;
+        padding-bottom: 260px;
+    }
 
     .right {
         display: none;
