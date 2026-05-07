@@ -127,13 +127,8 @@ function setStatus(message) {
 }
 
 function runScout() {
-
     setStatus("Scanning sources...");
-
-    setTimeout(() => {
-        renderResults(mockResults);
-        setStatus("Scout completed.");
-    }, 1000);
+    fetchUAPHeadlines(); 
 }
 
 function renderResults(results) {
