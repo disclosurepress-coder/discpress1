@@ -495,8 +495,12 @@ async function publishLive() {
 
     const headlineStart = "<!-- HEADLINES START -->";
     const headlineEnd = "<!-- HEADLINES END -->";
+    
     const videoStart = "<!-- VIDEOS START -->";
     const videoEnd = "<!-- VIDEOS END -->";
+    
+    const mobileVideoStart = "<!-- MOBILE VIDEO START -->";
+    const mobileVideoEnd = "<!-- MOBILE VIDEO END -->";
 
     if (!currentHTML.includes(headlineStart) || !currentHTML.includes(headlineEnd)) {
         setStatus("Error: index.html needs HEADLINES START and HEADLINES END markers.");
