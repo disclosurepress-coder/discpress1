@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disclosure Press Scout</title>
+
+<style>
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    color: #000;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-top: 0;
+}
+
+.actions {
+    margin: 20px 0;
+}
+
+button {
+    font-size: 16px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border: 1px solid #000;
+    background: #fff;
+}
+
+button:hover {
+    background: #eee;
+}
+
+.status {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+}
+
+.results {
+    margin-top: 30px;
+}
+
+.result-item {
+    border-bottom: 1px solid #ddd;
+    padding: 14px 0;
+}
+
+.result-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.result-source {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.result-url {
+    font-size: 13px;
+    word-break: break-all;
+    margin-bottom: 10px;
+}
+
+.result-actions {
+    display: flex;
+    gap: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>DISCLOSURE PRESS SCOUT</h1>
+
+<div class="actions">
+    <button onclick="runScout()">Run Scout</button>
+</div>
+
+<div class="status" id="status">
+    Status: Ready.
+</div>
+
+<div class="results" id="results"></div>
+
+</div>
+
+<script>
+
+const mockResults = [
+    {
+        title: "Pentagon officials discuss new UAP reporting standards",
+        source: "Mock Source",
+        url: "https://example.com/story1"
+    },
+    {
+        title: "Congressional staff reportedly reviewing classified UAP material",
+        source: "Mock Source",
+        url: "https://example.com/story2"
+    },
+    {
+        title: "New whistleblower interview gains traction online",
+        source: "Mock Source",
+        url: "https://example.com/story3"
+    }
+];
+
+function setStatus(message) {
+    document.getElementById("status").textContent = "Status: " + message;
+}
+
+function runScout() {
+
+    setStatus("Scanning sources...");
+
+    setTimeout(() => {
+        renderResults(mockResults);
+        setStatus("Scout completed.");
+    }, 1000);
+}
+
+function renderResults(results) {
+
+    const container = document.getElementById("results");
+
+    container.innerHTML = "";
+
+    results.forEach((item, index) => {
+
+        const div = document.createElement("div");
+        div.className = "result-item";
+
+        div.innerHTML = `
+            <div class="result-title">${item.title}</div>
+            <div class="result-source">${item.source}</div>
+            <div class="result-url">
+                <a href="${item.url}" target="_blank">
+                    ${item.url}
+                </a>
+            </div>
+
+            <div class="result-actions">
+                <button onclick="approveResult(${index})">
+                    Approve
+                </button>
+
+                <button onclick="rejectResult(${index})">
+                    Reject
+                </button>
+            </div>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+function approveResult(index) {
+    alert("Approved: " + mockResults[index].title);
+}
+
+function rejectResult(index) {
+    alert("Rejected: " + mockResults[index].title);
+}
+
+</script>
+
+</body>
+</html>
