@@ -451,6 +451,26 @@ function generateHeadlineHTML() {
     }).join("\n");
 }
 
+function generateMobileVideoHTML() {
+    if (videos.length === 0) {
+        return `<div class="mobile-video-dock"></div>`;
+    }
+
+    const video = videos[0];
+    const id = getYouTubeId(video.url);
+    const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
+    const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+
+    return `<div class="mobile-video-dock">
+<div class="video">
+<a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
+<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb" alt="${escapeHTML(video.title)}">
+</a>
+<div class="video-title">${escapeHTML(video.title)}</div>
+</div>
+</div>`;
+}
+    
 function generateVideoHTML() {
     return videos.map(video => {
         const id = getYouTubeId(video.url);
@@ -527,6 +547,11 @@ async function publishLive() {
         new RegExp(`${videoStart}[\\s\\S]*?${videoEnd}`),
         `${videoStart}\n${videoHTML}\n${videoEnd}`
     );
+
+    updatedHTML = updatedHTML.replace(
+    new RegExp(`${mobileVideoStart}[\\s\\S]*?${mobileVideoEnd}`),
+    `${mobileVideoStart}\n${mobileVideoHTML}\n${mobileVideoEnd}`
+);
 
     setStatus("Publishing updated headlines and videos to GitHub...");
 
