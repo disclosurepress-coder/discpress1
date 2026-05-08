@@ -111,45 +111,32 @@ function setStatus(message) {
 }
 
 function runScout() {
-
     setStatus("Scanning sources...");
-
     fetchUAPHeadlines();
 }
 
 function renderResults(results) {
-
     const container = document.getElementById("results");
-
     container.innerHTML = "";
 
+    if (!results.length) {
+        container.innerHTML = "<p>No results found.</p>";
+        return;
+    }
+
     results.forEach((item, index) => {
-
         const div = document.createElement("div");
-
         div.className = "result-item";
 
         div.innerHTML = `
             <div class="result-title">${item.title}</div>
-
-            <div class="result-source">
-                ${item.source}
-            </div>
-
+            <div class="result-source">${item.source}</div>
             <div class="result-url">
-                <a href="${item.url}" target="_blank">
-                    ${item.url}
-                </a>
+                <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>
             </div>
-
             <div class="result-actions">
-                <button onclick="approveResult(${index})">
-                    Approve
-                </button>
-
-                <button onclick="rejectResult(${index})">
-                    Reject
-                </button>
+                <button onclick="approveResult(${index})">Approve</button>
+                <button onclick="rejectResult(${index})">Reject</button>
             </div>
         `;
 
@@ -162,27 +149,23 @@ function approveResult(index) {
 }
 
 function rejectResult(index) {
-    alert("Rejected: " + currentResults[index].title);
+    currentResults.splice(index, 1);
+    renderResults(currentResults);
+    setStatus("Result rejected.");
 }
 
 async function fetchUAPHeadlines() {
-
-   const query = encodeURIComponent('"UAP" OR "UFO" OR "NHI" OR "disclosure"');
-
+    const query = encodeURIComponent('"UAP" OR "UFO" OR "NHI" OR "non-human intelligence" OR "disclosure"');
     const url = `https://disclosure-scout-worker.disclosurepress.workers.dev/?q=${query}`;
 
     try {
-
         const response = await fetch(url);
-
         const data = await response.json();
 
-        console.log(data);
+        console.log("Scout data:", data);
 
         if (data.status !== "ok") {
-
-            setStatus("NewsAPI error: " + data.message);
-
+            setStatus("Scout error: " + (data.message || "Unknown error"));
             return;
         }
 
@@ -193,13 +176,10 @@ async function fetchUAPHeadlines() {
         }));
 
         renderResults(currentResults);
-
         setStatus(`Scout completed. ${currentResults.length} articles found.`);
 
     } catch (error) {
-
         console.error(error);
-
         setStatus("Fetch error. Check console.");
     }
 }
