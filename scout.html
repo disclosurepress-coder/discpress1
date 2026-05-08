@@ -157,6 +157,8 @@ function rejectResult(index) {
 
 async function fetchUAPHeadlines() {
 
+    setStatus("Scanning sources...");
+
     try {
 
         const response = await fetch(
@@ -167,14 +169,23 @@ async function fetchUAPHeadlines() {
 
         console.log(data);
 
-        setStatus("SUCCESS");
+        currentResults = data.articles.map(article => ({
+            title: article.title || "No title",
+            source: article.source?.name || "Unknown source",
+            url: article.url || "#"
+        }));
+
+        renderResults(currentResults);
+
+        setStatus(`Scout completed. ${currentResults.length} articles found.`);
 
     } catch (error) {
 
         console.error(error);
 
-        setStatus(error.message);
+        setStatus("Fetch error: " + error.message);
     }
+}
 }
 
         if (!data.articles || !Array.isArray(data.articles)) {
