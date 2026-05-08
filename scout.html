@@ -160,18 +160,25 @@ async function fetchUAPHeadlines() {
 
     try {
         const response = await fetch(url);
-        const data = await response.json();
 
-        console.log("Scout data:", data);
+        const text = await response.text();
+        console.log("Raw Worker response:", text);
+
+        const data = JSON.parse(text);
 
         if (data.status !== "ok") {
             setStatus("Scout error: " + (data.message || "Unknown error"));
             return;
         }
 
+        if (!data.articles || !Array.isArray(data.articles)) {
+            setStatus("Scout error: No articles array returned.");
+            return;
+        }
+
         currentResults = data.articles.map(article => ({
             title: article.title || "No title",
-            source: article.source?.name || "Unknown source",
+            source: article.source && article.source.name ? article.source.name : "Unknown source",
             url: article.url || "#"
         }));
 
@@ -179,8 +186,8 @@ async function fetchUAPHeadlines() {
         setStatus(`Scout completed. ${currentResults.length} articles found.`);
 
     } catch (error) {
-        console.error(error);
-        setStatus("Fetch error. Check console.");
+        console.error("Scout fetch error:", error);
+        setStatus("Fetch error: " + error.message);
     }
 }
 
