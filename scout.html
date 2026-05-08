@@ -104,9 +104,6 @@ button:hover {
 
 <script>
 
-
-<script>
-
 let currentResults = [];
 
 function setStatus(message) {
@@ -129,6 +126,7 @@ function renderResults(results) {
     results.forEach((item, index) => {
 
         const div = document.createElement("div");
+
         div.className = "result-item";
 
         div.innerHTML = `
@@ -169,9 +167,9 @@ function rejectResult(index) {
 
 async function fetchUAPHeadlines() {
 
-    const apiKey = '66434ba8158f467e8edcc165fd47f8a5';
+    const apiKey = 'PASTE_YOUR_KEY_HERE';
 
-    const query = encodeURIComponent('"UAP" OR "UFO" OR "non-human intelligence" OR "NHI" OR "UAP disclosure"');
+    const query = encodeURIComponent('"UAP" OR "UFO" OR "NHI" OR "disclosure"');
 
     const url = `https://newsapi.org/v2/everything?q=${query}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${apiKey}`;
 
@@ -181,11 +179,11 @@ async function fetchUAPHeadlines() {
 
         const data = await response.json();
 
-        console.log("NewsAPI response:", data);
+        console.log(data);
 
         if (data.status !== "ok") {
 
-            setStatus("NewsAPI error: " + (data.message || "Unknown error"));
+            setStatus("NewsAPI error: " + data.message);
 
             return;
         }
@@ -202,9 +200,9 @@ async function fetchUAPHeadlines() {
 
     } catch (error) {
 
-        console.error("Fetch error:", error);
+        console.error(error);
 
-        setStatus("Fetch error. Open console.");
+        setStatus("Fetch error. Check console.");
     }
 }
 
