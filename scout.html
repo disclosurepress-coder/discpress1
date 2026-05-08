@@ -105,13 +105,19 @@ button:hover {
 <script>
 
 
+<script>
+
+let currentResults = [];
+
 function setStatus(message) {
     document.getElementById("status").textContent = "Status: " + message;
 }
 
 function runScout() {
+
     setStatus("Scanning sources...");
-    fetchUAPHeadlines(); 
+
+    fetchUAPHeadlines();
 }
 
 function renderResults(results) {
@@ -127,7 +133,11 @@ function renderResults(results) {
 
         div.innerHTML = `
             <div class="result-title">${item.title}</div>
-            <div class="result-source">${item.source}</div>
+
+            <div class="result-source">
+                ${item.source}
+            </div>
+
             <div class="result-url">
                 <a href="${item.url}" target="_blank">
                     ${item.url}
@@ -150,12 +160,12 @@ function renderResults(results) {
 }
 
 function approveResult(index) {
-     alert("Approved: " + currentResults[index].title);
+    alert("Approved: " + currentResults[index].title);
+}
 
 function rejectResult(index) {
-     alert("Rejected: " + currentResults[index].title);
-
-let currentResults = [];
+    alert("Rejected: " + currentResults[index].title);
+}
 
 async function fetchUAPHeadlines() {
 
@@ -166,13 +176,17 @@ async function fetchUAPHeadlines() {
     const url = `https://newsapi.org/v2/everything?q=${query}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${apiKey}`;
 
     try {
+
         const response = await fetch(url);
+
         const data = await response.json();
 
         console.log("NewsAPI response:", data);
 
         if (data.status !== "ok") {
+
             setStatus("NewsAPI error: " + (data.message || "Unknown error"));
+
             return;
         }
 
@@ -183,15 +197,18 @@ async function fetchUAPHeadlines() {
         }));
 
         renderResults(currentResults);
+
         setStatus(`Scout completed. ${currentResults.length} articles found.`);
 
     } catch (error) {
+
         console.error("Fetch error:", error);
-        setStatus("Fetch error. Open browser console for details.");
+
+        setStatus("Fetch error. Open console.");
     }
 }
 
-// Call the function
+</script>
 fetchUAPHeadlines();
     
 </script>
