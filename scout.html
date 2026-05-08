@@ -156,7 +156,7 @@ function rejectResult(index) {
 
 async function fetchUAPHeadlines() {
     const query = encodeURIComponent('"UAP" OR "UFO" OR "NHI" OR "non-human intelligence" OR "disclosure"');
-    const url = `https://disclosure-scout-worker.disclosurepress.workers.dev/?q=${query}`;
+    const url = `https://disclosure-scout-worker.disclosurepress.workers.dev?q=${query}`;
 
     try {
         const response = await fetch(url);
