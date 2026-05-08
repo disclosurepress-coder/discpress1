@@ -155,21 +155,26 @@ function rejectResult(index) {
 }
 
 async function fetchUAPHeadlines() {
-    const query = encodeURIComponent('"UAP" OR "UFO" OR "NHI" OR "non-human intelligence" OR "disclosure"');
-    const url = `https://disclosure-scout-worker.disclosurepress.workers.dev?q=${query}`;
 
     try {
-        const response = await fetch(url);
 
-        const text = await response.text();
-        console.log("Raw Worker response:", text);
+        const response = await fetch(
+            "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO"
+        );
 
-        const data = JSON.parse(text);
+        const data = await response.json();
 
-        if (data.status !== "ok") {
-            setStatus("Scout error: " + (data.message || "Unknown error"));
-            return;
-        }
+        console.log(data);
+
+        setStatus("SUCCESS");
+
+    } catch (error) {
+
+        console.error(error);
+
+        setStatus(error.message);
+    }
+}
 
         if (!data.articles || !Array.isArray(data.articles)) {
             setStatus("Scout error: No articles array returned.");
