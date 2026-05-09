@@ -266,24 +266,53 @@ function saveAdminStories(stories) {
     localStorage.setItem(ADMIN_STORIES_KEY, JSON.stringify(stories));
 }
 
-function queueArticleForAdmin(index) {
+function workerEndpoint(path) {
+    return new URL(path, WORKER_URL).toString();
+}
+
+async function postArticleAction(path, article) {
+    const response = await fetch(workerEndpoint(path), {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(article)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || `Worker returned ${response.status}`);
+    }
+
+    return data;
+}
+
+async function queueArticleForAdmin(index) {
     const article = currentResults[index];
     const stories = getAdminStories();
     const alreadyQueued = stories.some(story => story.url === article.url);
 
-    if (!alreadyQueued) {
-        stories.unshift({
-            headline: article.title,
-            url: article.url,
-            color: ""
-        });
-        saveAdminStories(stories);
-    }
+    try {
+        await postArticleAction("/queue", article);
 
-    markArticleSeen(article);
-    currentResults.splice(index, 1);
-    renderResults(currentResults);
-    setStatus(alreadyQueued ? "Article was already waiting in Admin." : "Article queued in Admin, waiting to be published.");
+        if (!alreadyQueued) {
+            stories.unshift({
+                headline: article.title,
+                url: article.url,
+                color: ""
+            });
+            saveAdminStories(stories);
+        }
+
+        markArticleSeen(article);
+        currentResults.splice(index, 1);
+        renderResults(currentResults);
+        setStatus(alreadyQueued ? "Article was already waiting in Admin." : "Article queued in Admin, waiting to be published.");
+    } catch (error) {
+        setStatus(`Queue error: ${error.message}`, true);
+    }
 }
 
 function formatDate(value) {
@@ -370,11 +399,18 @@ function renderResults(articles) {
     });
 }
 
-function rejectArticle(index) {
-    markArticleSeen(currentResults[index]);
-    currentResults.splice(index, 1);
-    renderResults(currentResults);
-    setStatus("Article rejected and hidden from future Scout runs.");
+async function rejectArticle(index) {
+    const article = currentResults[index];
+
+    try {
+        await postArticleAction("/reject", article);
+        markArticleSeen(article);
+        currentResults.splice(index, 1);
+        renderResults(currentResults);
+        setStatus("Article rejected and hidden from future Scout runs.");
+    } catch (error) {
+        setStatus(`Reject error: ${error.message}`, true);
+    }
 }
 
 async function runScout() {
