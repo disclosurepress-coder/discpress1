@@ -455,7 +455,6 @@ async function runScout() {
             .filter(article => article.url && !seenUrls.has(article.url));
 
         renderResults(currentResults);
-        markArticlesSeen(currentResults);
         setStatus(`Scout complete. ${currentResults.length} new articles found.`);
     } catch (error) {
         currentResults = [];
