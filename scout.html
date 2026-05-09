@@ -100,9 +100,12 @@ button:hover {
     try {
 
         const response = await fetch(
-            "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO"
-        );
-
+    "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO",
+    {
+        method: "GET",
+        mode: "cors"
+    }
+);
         setStatus("Fetch returned");
 
         const data = await response.json();
