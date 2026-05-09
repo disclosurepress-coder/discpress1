@@ -253,11 +253,6 @@ function markArticleSeen(article) {
     saveSeenUrls([...getSeenUrls(), article.url]);
 }
 
-function markArticlesSeen(articles) {
-    const urls = articles.map(article => article.url).filter(Boolean);
-    saveSeenUrls([...getSeenUrls(), ...urls]);
-}
-
 function getAdminStories() {
     return JSON.parse(localStorage.getItem(ADMIN_STORIES_KEY)) || [];
 }
