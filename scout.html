@@ -91,6 +91,43 @@ button:hover {
 <h1>DISCLOSURE PRESS SCOUT</h1>
     
 <div class="actions">
+    async function fetchUAPHeadlines() {
+
+    setStatus("Function started");
+
+    console.log("Function started");
+
+    try {
+
+        const response = await fetch(
+            "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO"
+        );
+
+        setStatus("Fetch returned");
+
+        const data = await response.json();
+
+        console.log(data);
+
+        setStatus("JSON parsed");
+
+        currentResults = data.articles.map(article => ({
+            title: article.title || "No title",
+            source: article.source?.name || "Unknown source",
+            url: article.url || "#"
+        }));
+
+        renderResults(currentResults);
+
+        setStatus(`Scout completed. ${currentResults.length} articles found.`);
+
+    } catch (error) {
+
+        console.error(error);
+
+        setStatus("Fetch error: " + error.message);
+    }
+}
     <button onclick="fetchUAPHeadlines()">Run Scout</button>
 </div>
 
