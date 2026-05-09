@@ -203,13 +203,10 @@ async function fetchUAPHeadlines() {
 
     try {
 
-        const response = await fetch(
-            "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO",
-            {
-                method: "GET",
-                mode: "cors"
-            }
-        );
+        const response = await fetch(WORKER_URL, {
+    method: "GET",
+    mode: "cors"
+});
 
         const data = await response.json();
 
