@@ -4,18 +4,200 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Disclosure Press Scout</title>
+<style>
+:root {
+    color-scheme: light;
+    --bg: #f3f5f7;
+    --panel: #ffffff;
+    --ink: #101418;
+    --muted: #5d6875;
+    --line: #d9dee5;
+    --accent: #135f7a;
+    --accent-dark: #0d465a;
+    --danger: #8a1f11;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+}
+
+.page {
+    width: min(1120px, calc(100% - 32px));
+    margin: 24px auto;
+}
+
+.shell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 22px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 18px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: 0;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-input {
+    width: min(260px, 38vw);
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    font-size: 15px;
+}
+
+button {
+    border: 1px solid var(--accent-dark);
+    background: var(--accent);
+    color: #fff;
+    padding: 10px 14px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: var(--accent-dark);
+}
+
+button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.secondary-button {
+    border-color: #9aa5b1;
+    background: #fff;
+    color: var(--ink);
+}
+
+.secondary-button:hover:not(:disabled) {
+    background: #edf1f4;
+}
+
+.status {
+    margin: 18px 0 0;
+    border: 1px solid var(--line);
+    background: #f9fafb;
+    padding: 11px 12px;
+    color: var(--muted);
+}
+
+.status.error {
+    border-color: #e4b5ad;
+    background: #fff6f4;
+    color: var(--danger);
+}
+
+.results {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.article-card {
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 15px;
+}
+
+.article-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    line-height: 1.35;
+}
+
+.article-title a {
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.article-title a:hover {
+    text-decoration: underline;
+}
+
+.article-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.article-description {
+    margin: 0 0 12px;
+    color: #28313a;
+    line-height: 1.45;
+}
+
+.article-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.empty {
+    margin: 0;
+    padding: 16px 0;
+    color: var(--muted);
+}
+
+@media (max-width: 720px) {
+    .topbar,
+    .controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .search-input,
+    button {
+        width: 100%;
+    }
+}
+</style>
 </head>
 <body>
-<h1>Disclosure Press Scout</h1>
+<main class="page">
+    <section class="shell" aria-labelledby="pageTitle">
+        <div class="topbar">
+            <h1 id="pageTitle">Disclosure Press Scout</h1>
+            <div class="controls">
+                <input class="search-input" id="queryInput" type="search" value="UFO" aria-label="Search topic">
+                <button id="runScoutButton" type="button">Run Scout</button>
+            </div>
+        </div>
 
-<input id="queryInput" type="search" value="UFO">
-<button id="runScoutButton" type="button">Run Scout</button>
-
-<div id="status">Ready.</div>
-<div id="results"></div>
+        <div class="status" id="status" role="status">Ready.</div>
+        <div class="results" id="results" aria-live="polite"></div>
+    </section>
+</main>
 
 <script>
 const WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
+const ADMIN_STORIES_KEY = "disclosurePressStories";
+const SCOUT_SEEN_URLS_KEY = "disclosurePressScoutSeenUrls";
+
+let currentResults = [];
 
 const runScoutButton = document.getElementById("runScoutButton");
 const queryInput = document.getElementById("queryInput");
@@ -23,67 +205,233 @@ const statusBox = document.getElementById("status");
 const resultsBox = document.getElementById("results");
 
 runScoutButton.addEventListener("click", runScout);
+queryInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        runScout();
+    }
+});
 
-function setStatus(message) {
+function setStatus(message, isError = false) {
     statusBox.textContent = message;
+    statusBox.classList.toggle("error", isError);
 }
 
-function renderArticles(articles) {
+function clearResults(message = "") {
     resultsBox.innerHTML = "";
 
-    if (!articles.length) {
-        resultsBox.textContent = "No articles found.";
+    if (message) {
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = message;
+        resultsBox.appendChild(empty);
+    }
+}
+
+function normalizeArticle(article) {
+    return {
+        title: article.title || "Untitled article",
+        source: article.source || "Unknown source",
+        url: article.url || "",
+        publishedAt: article.publishedAt || "",
+        description: article.description || ""
+    };
+}
+
+function getSeenUrls() {
+    return JSON.parse(localStorage.getItem(SCOUT_SEEN_URLS_KEY)) || [];
+}
+
+function saveSeenUrls(urls) {
+    localStorage.setItem(SCOUT_SEEN_URLS_KEY, JSON.stringify([...new Set(urls)]));
+}
+
+function markArticleSeen(article) {
+    if (!article.url) {
         return;
     }
 
-    articles.forEach(article => {
+    saveSeenUrls([...getSeenUrls(), article.url]);
+}
+
+function markArticlesSeen(articles) {
+    const urls = articles.map(article => article.url).filter(Boolean);
+    saveSeenUrls([...getSeenUrls(), ...urls]);
+}
+
+function getAdminStories() {
+    return JSON.parse(localStorage.getItem(ADMIN_STORIES_KEY)) || [];
+}
+
+function saveAdminStories(stories) {
+    localStorage.setItem(ADMIN_STORIES_KEY, JSON.stringify(stories));
+}
+
+function queueArticleForAdmin(index) {
+    const article = currentResults[index];
+    const stories = getAdminStories();
+    const alreadyQueued = stories.some(story => story.url === article.url);
+
+    if (!alreadyQueued) {
+        stories.unshift({
+            headline: article.title,
+            url: article.url,
+            color: ""
+        });
+        saveAdminStories(stories);
+    }
+
+    markArticleSeen(article);
+    currentResults.splice(index, 1);
+    renderResults(currentResults);
+    setStatus(alreadyQueued ? "Article was already waiting in Admin." : "Article queued in Admin, waiting to be published.");
+}
+
+function formatDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    return date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function renderResults(articles) {
+    resultsBox.innerHTML = "";
+
+    if (!articles.length) {
+        clearResults("No articles found.");
+        return;
+    }
+
+    articles.forEach((article, index) => {
         const card = document.createElement("article");
+        card.className = "article-card";
 
         const title = document.createElement("h2");
-        const link = document.createElement("a");
-        link.href = article.url;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        link.textContent = article.title || "Untitled article";
-        title.appendChild(link);
+        title.className = "article-title";
 
-        const source = document.createElement("p");
-        source.textContent = article.source || "Unknown source";
+        const titleLink = document.createElement("a");
+        titleLink.href = article.url;
+        titleLink.target = "_blank";
+        titleLink.rel = "noopener noreferrer";
+        titleLink.textContent = article.title;
+        title.appendChild(titleLink);
 
-        const description = document.createElement("p");
-        description.textContent = article.description || "";
+        const meta = document.createElement("div");
+        meta.className = "article-meta";
 
-        card.append(title, source, description);
+        const source = document.createElement("span");
+        source.textContent = article.source;
+        meta.appendChild(source);
+
+        const published = formatDate(article.publishedAt);
+        if (published) {
+            const date = document.createElement("span");
+            date.textContent = published;
+            meta.appendChild(date);
+        }
+
+        if (article.description) {
+            const description = document.createElement("p");
+            description.className = "article-description";
+            description.textContent = article.description;
+            card.append(title, meta, description);
+        } else {
+            card.append(title, meta);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "article-actions";
+
+        const queue = document.createElement("button");
+        queue.type = "button";
+        queue.className = "secondary-button";
+        queue.textContent = "Queue for Publish";
+        queue.addEventListener("click", () => queueArticleForAdmin(index));
+
+        const reject = document.createElement("button");
+        reject.type = "button";
+        reject.className = "secondary-button";
+        reject.textContent = "Reject";
+        reject.addEventListener("click", () => rejectArticle(index));
+
+        actions.append(queue, reject);
+        card.appendChild(actions);
         resultsBox.appendChild(card);
     });
 }
 
-async function runScout() {
-    const requestUrl = new URL(WORKER_URL);
-    requestUrl.searchParams.set("q", queryInput.value.trim() || "UFO");
+function rejectArticle(index) {
+    markArticleSeen(currentResults[index]);
+    currentResults.splice(index, 1);
+    renderResults(currentResults);
+    setStatus("Article rejected and hidden from future Scout runs.");
+}
 
+async function runScout() {
+    const workerUrl = WORKER_URL.trim();
+
+    if (!workerUrl || workerUrl === "PASTE_YOUR_NEW_WORKER_URL_HERE") {
+        setStatus("Add your new Worker URL to WORKER_URL in scout.html.", true);
+        return;
+    }
+
+    const query = queryInput.value.trim() || "UFO";
+    const requestUrl = new URL(workerUrl);
+    requestUrl.searchParams.set("q", query);
+
+    runScoutButton.disabled = true;
     setStatus("Scanning sources...");
-    resultsBox.innerHTML = "";
+    clearResults();
 
     try {
         const response = await fetch(requestUrl.toString(), {
-            headers: { "Accept": "application/json" }
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
         });
 
+        const contentType = response.headers.get("content-type") || "";
+
         if (!response.ok) {
-            throw new Error("Worker returned " + response.status);
+            throw new Error(`Worker returned ${response.status}`);
+        }
+
+        if (!contentType.includes("application/json")) {
+            throw new Error("Worker returned something other than JSON.");
         }
 
         const data = await response.json();
 
         if (!Array.isArray(data.articles)) {
-            throw new Error("Worker JSON did not include articles.");
+            throw new Error("Worker JSON must include an articles array.");
         }
 
-        renderArticles(data.articles);
-        setStatus("Scout complete. " + data.articles.length + " articles found.");
+        const seenUrls = new Set(getSeenUrls());
+
+        currentResults = data.articles
+            .map(normalizeArticle)
+            .filter(article => article.url && !seenUrls.has(article.url));
+
+        renderResults(currentResults);
+        markArticlesSeen(currentResults);
+        setStatus(`Scout complete. ${currentResults.length} new articles found.`);
     } catch (error) {
-        setStatus("Fetch error: " + error.message);
+        currentResults = [];
+        clearResults("No articles loaded.");
+        setStatus(`Fetch error: ${error.message}`, true);
+    } finally {
+        runScoutButton.disabled = false;
     }
 }
 </script>
