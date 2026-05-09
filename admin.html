@@ -242,6 +242,10 @@ let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
 let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
 let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {};
 
+const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
+const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
+const BACKUP_DATE_KEY = "disclosurePressBackupDate";
+    
 function loadSettings() {
     document.getElementById("githubOwner").value = settings.owner || "";
     document.getElementById("githubRepo").value = settings.repo || "";
@@ -263,6 +267,38 @@ function saveSettings() {
     setStatus("Publishing settings saved.");
 }
 
+function saveBackup() {
+    localStorage.setItem(BACKUP_STORIES_KEY, JSON.stringify(stories));
+    localStorage.setItem(BACKUP_VIDEOS_KEY, JSON.stringify(videos));
+    localStorage.setItem(BACKUP_DATE_KEY, new Date().toISOString());
+}
+
+function restoreLastBackup() {
+    const backupStories = localStorage.getItem(BACKUP_STORIES_KEY);
+    const backupVideos = localStorage.getItem(BACKUP_VIDEOS_KEY);
+    const backupDate = localStorage.getItem(BACKUP_DATE_KEY);
+
+    if (!backupStories && !backupVideos) {
+        alert("No backup found.");
+        return;
+    }
+
+    const label = backupDate ? new Date(backupDate).toLocaleString() : "unknown time";
+
+    if (!confirm(`Restore backup from ${label}? This will replace the current draft headlines and videos.`)) {
+        return;
+    }
+
+    stories = JSON.parse(backupStories || "[]");
+    videos = JSON.parse(backupVideos || "[]");
+
+    saveDraft();
+    renderStories();
+    renderVideos();
+    setStatus(`Restored backup from ${label}.`);
+}
+
+    
 function saveDraft() {
     localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
     localStorage.setItem("disclosurePressVideos", JSON.stringify(videos));
@@ -451,13 +487,18 @@ function deleteVideo(index) {
 }
 
 function clearAll() {
-    if (!confirm("Clear all saved headlines and videos?")) return;
+    if (!confirm("Clear all saved headlines and videos? A backup will be saved first.")) return;
+
+    saveBackup();
+
     stories = [];
     videos = [];
     saveDraft();
     renderStories();
     renderVideos();
+    setStatus("Cleared all headlines and videos. Backup saved.");
 }
+
 
 function escapeHTML(str) {
     return str.replace(/[&<>'"]/g, tag => ({
