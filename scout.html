@@ -1,243 +1,91 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Disclosure Press Scout</title>
-
-<style>
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f4f4f4;
-    margin: 0;
-    padding: 20px;
-    color: #000;
-}
-
-.container {
-    max-width: 1100px;
-    margin: 0 auto;
-    background: #fff;
-    border: 1px solid #ccc;
-    padding: 20px;
-}
-
-h1 {
-    text-align: center;
-    margin-top: 0;
-}
-
-.actions {
-    margin: 20px 0;
-}
-
-button {
-    font-size: 16px;
-    padding: 10px 16px;
-    cursor: pointer;
-    border: 1px solid #000;
-    background: #fff;
-}
-
-button:hover {
-    background: #eee;
-}
-
-.status {
-    margin-top: 15px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    background: #fafafa;
-}
-
-.results {
-    margin-top: 30px;
-}
-
-.result-item {
-    border-bottom: 1px solid #ddd;
-    padding: 14px 0;
-}
-
-.result-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 6px;
-}
-
-.result-source {
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 6px;
-}
-
-.result-url {
-    font-size: 13px;
-    word-break: break-all;
-    margin-bottom: 10px;
-}
-
-.result-actions {
-    display: flex;
-    gap: 10px;
-}
-</style>
 </head>
-
 <body>
+<h1>Disclosure Press Scout</h1>
 
-<div class="container">
+<input id="queryInput" type="search" value="UFO">
+<button id="runScoutButton" type="button">Run Scout</button>
 
-<h1>DISCLOSURE PRESS SCOUT</h1>
-    
-<div class="actions">
-    
-);
-        setStatus("Fetch returned");
-
-        const data = await response.json();
-
-        console.log(data);
-
-        setStatus("JSON parsed");
-
-        currentResults = data.articles.map(article => ({
-            title: article.title || "No title",
-            source: article.source?.name || "Unknown source",
-            url: article.url || "#"
-        }));
-
-        renderResults(currentResults);
-
-        setStatus(`Scout completed. ${currentResults.length} articles found.`);
-
-    } catch (error) {
-
-        console.error(error);
-
-        setStatus("Fetch error: " + error.message);
-    }
-}
-    <button onclick="fetchUAPHeadlines()">Run Scout</button>
-</div>
-
-<div class="status" id="status">
-    Status: Ready.
-</div>
-
-<div class="results" id="results"></div>
-
-</div>
+<div id="status">Ready.</div>
+<div id="results"></div>
 
 <script>
+const WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
 
-const WORKER_URL = "https://disclosure-scout-worker.disclosurepress.workers.dev/?q=UFO";
-    
-let currentResults = [];
+const runScoutButton = document.getElementById("runScoutButton");
+const queryInput = document.getElementById("queryInput");
+const statusBox = document.getElementById("status");
+const resultsBox = document.getElementById("results");
+
+runScoutButton.addEventListener("click", runScout);
 
 function setStatus(message) {
-    document.getElementById("status").textContent = "Status: " + message;
+    statusBox.textContent = message;
 }
 
-function renderResults(results) {
+function renderArticles(articles) {
+    resultsBox.innerHTML = "";
 
-    const container = document.getElementById("results");
-
-    container.innerHTML = "";
-
-    if (!results.length) {
-        container.innerHTML = "<p>No results found.</p>";
+    if (!articles.length) {
+        resultsBox.textContent = "No articles found.";
         return;
     }
 
-    results.forEach((item, index) => {
+    articles.forEach(article => {
+        const card = document.createElement("article");
 
-        const div = document.createElement("div");
+        const title = document.createElement("h2");
+        const link = document.createElement("a");
+        link.href = article.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = article.title || "Untitled article";
+        title.appendChild(link);
 
-        div.className = "result-item";
+        const source = document.createElement("p");
+        source.textContent = article.source || "Unknown source";
 
-        div.innerHTML = `
-            <div class="result-title">${item.title}</div>
+        const description = document.createElement("p");
+        description.textContent = article.description || "";
 
-            <div class="result-source">
-                ${item.source}
-            </div>
-
-            <div class="result-url">
-                <a href="${item.url}" target="_blank" rel="noopener noreferrer">
-                    ${item.url}
-                </a>
-            </div>
-
-            <div class="result-actions">
-                <button onclick="approveResult(${index})">
-                    Approve
-                </button>
-
-                <button onclick="rejectResult(${index})">
-                    Reject
-                </button>
-            </div>
-        `;
-
-        container.appendChild(div);
+        card.append(title, source, description);
+        resultsBox.appendChild(card);
     });
 }
 
-function approveResult(index) {
-    alert("Approved: " + currentResults[index].title);
-}
-
-function rejectResult(index) {
-
-    currentResults.splice(index, 1);
-
-    renderResults(currentResults);
-
-    setStatus("Result rejected.");
-}
-
-async function fetchUAPHeadlines() {
+async function runScout() {
+    const requestUrl = new URL(WORKER_URL);
+    requestUrl.searchParams.set("q", queryInput.value.trim() || "UFO");
 
     setStatus("Scanning sources...");
+    resultsBox.innerHTML = "";
 
     try {
+        const response = await fetch(requestUrl.toString(), {
+            headers: { "Accept": "application/json" }
+        });
 
-        const response = await fetch(WORKER_URL, {
-    method: "GET",
-    mode: "cors"
-});
+        if (!response.ok) {
+            throw new Error("Worker returned " + response.status);
+        }
 
         const data = await response.json();
 
-        console.log(data);
-
-        if (!data.articles || !Array.isArray(data.articles)) {
-
-            setStatus("No articles returned.");
-
-            return;
+        if (!Array.isArray(data.articles)) {
+            throw new Error("Worker JSON did not include articles.");
         }
 
-        currentResults = data.articles.map(article => ({
-            title: article.title || "No title",
-            source: article.source?.name || "Unknown source",
-            url: article.url || "#"
-        }));
-
-        renderResults(currentResults);
-
-        setStatus(`Scout completed. ${currentResults.length} articles found.`);
-
+        renderArticles(data.articles);
+        setStatus("Scout complete. " + data.articles.length + " articles found.");
     } catch (error) {
-
-        console.error(error);
-
         setStatus("Fetch error: " + error.message);
     }
 }
-
 </script>
-
 </body>
 </html>
