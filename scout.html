@@ -91,20 +91,7 @@ button:hover {
 <h1>DISCLOSURE PRESS SCOUT</h1>
     
 <div class="actions">
-    async function fetchUAPHeadlines() {
-
-    setStatus("Function started");
-
-    console.log("Function started");
-
-    try {
-
-        const response = await fetch(
-    "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO",
-    {
-        method: "GET",
-        mode: "cors"
-    }
+    
 );
         setStatus("Fetch returned");
 
@@ -216,6 +203,21 @@ async function fetchUAPHeadlines() {
     }
 }
 
+async function fetchUAPHeadlines() {
+
+    setStatus("Function started");
+
+    console.log("Function started");
+
+    try {
+
+        const response = await fetch(
+    "https://disclosure-scout-worker.disclosurepress.workers.dev?q=UFO",
+    {
+        method: "GET",
+        mode: "cors"
+    }
+    
 </script>
 
 </body>
