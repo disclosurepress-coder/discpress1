@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Disclosure Press Admin</title>
+<style>
+
+.drag-handle {
+    cursor: grab;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 0 8px;
+    user-select: none;
+}
+    
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    color: #000;
+}
+
+.admin-wrap {
+    max-width: 950px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 20px;
+}
+
+h1, h2 {
+    text-align: center;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-top: 12px;
+}
+
+input, select, button, textarea {
+    font-size: 16px;
+    padding: 8px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+input, select, textarea {
+    width: 100%;
+}
+
+button {
+    cursor: pointer;
+    border: 1px solid #000;
+    background: #fff;
+}
+
+button:hover {
+    background: #eee;
+}
+
+.form-row {
+    margin-bottom: 10px;
+}
+
+.actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.story-list {
+    margin-top: 25px;
+    border-top: 1px solid #ccc;
+}
+
+.story-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 44px 70px 80px;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.story-item button {
+    width: 100%;
+}
+
+.story-title {
+    font-size: 17px;
+}
+
+.story-subtitle {
+    font-size: 13px;
+    color: #555;
+    margin-top: 3px;
+    word-break: break-all;
+}
+
+.red { color: red; }
+.blue { color: blue; }
+.green { color: green; }
+
+.note {
+    font-size: 14px;
+    color: #555;
+    margin-top: 8px;
+    line-height: 1.4;
+}
+
+.status {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    min-height: 20px;
+}
+
+.warning {
+    background: #fff5d6;
+    border: 1px solid #d8b100;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.auth-screen {
+    min-height: calc(100vh - 40px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-card {
+    width: min(420px, 100%);
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 24px;
+}
+
+.auth-card h1 {
+    margin-top: 0;
+    text-align: left;
+}
+
+.auth-error {
+    min-height: 20px;
+    color: #8a1f11;
+    font-size: 14px;
+}
+
+body.authenticated .auth-screen {
+    display: none;
+}
+
+body:not(.authenticated) .admin-wrap {
+    display: none;
+}
+</style>
+</head>
+<body>
+<div class="auth-screen" id="authScreen">
+    <form class="auth-card" id="authForm">
+        <h1>Disclosure Press Admin</h1>
+        <p class="note">Enter the admin password to continue.</p>
+        <label for="adminPassword">Admin Password</label>
+        <input id="adminPassword" type="password" autocomplete="current-password" />
+        <div class="actions">
+            <button type="submit">Unlock Admin</button>
+        </div>
+        <p class="auth-error" id="authError" role="alert"></p>
+    </form>
+</div>
+
+<div class="admin-wrap">
+    <h1>DISCLOSURE PRESS ADMIN</h1>
+
+    <div class="warning">
+        <strong>How publishing works:</strong> this dashboard updates your <code>index.html</code> file in GitHub. If Cloudflare is connected to that GitHub repository, it should automatically redeploy the live site after you click <strong>Publish Live</strong>.
+    </div>
+
+    <h2>GitHub Publishing Settings</h2>
+
+    <div class="form-row">
+        <label for="githubOwner">GitHub Username / Organization</label>
+        <input id="githubOwner" type="text" placeholder="Example: disclosurepress-coder" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubRepo">Repository Name</label>
+        <input id="githubRepo" type="text" placeholder="Example: discpress1" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubBranch">Branch</label>
+        <input id="githubBranch" type="text" value="main" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubPath">File to Update</label>
+        <input id="githubPath" type="text" value="index.html" />
+    </div>
+
+    <div class="form-row">
+        <label for="githubToken">GitHub Fine-Grained Personal Access Token</label>
+        <input id="githubToken" type="password" placeholder="Paste token here" />
+        <p class="note">Use a fine-grained token limited to this one repository with <strong>Contents: Read and Write</strong>. Metadata can stay <strong>Read-only</strong>. The token is saved only in this browser using localStorage.</p>
+    </div>
+
+    <div class="actions">
+        <button onclick="saveSettings()">Save Publishing Settings</button>
+    </div>
+
+    <hr />
+
+    <h2>Add Headline</h2>
+
+    <div class="form-row">
+        <label for="headline">Headline</label>
+        <input id="headline" type="text" placeholder="Example: Pentagon Confirms New UAP Briefing" />
+    </div>
+
+    <div class="form-row">
+        <label for="url">Link URL</label>
+        <input id="url" type="text" placeholder="https://example.com/article" />
+    </div>
+
+    <div class="form-row">
+        <label for="color">Headline Color</label>
+        <select id="color">
+            <option value="">Black / Default</option>
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+        </select>
+    </div>
+
+    <input id="headlineEditIndex" type="hidden" value="" />
+
+<div class="actions">
+    <button id="headlineSubmitButton" onclick="addStory()">Add Headline</button>
+    <button id="cancelHeadlineEditButton" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
+</div>
+
+    <div id="storyList" class="story-list"></div>
+
+    <hr />
+
+    <h2>Add Video</h2>
+
+    <div class="form-row">
+        <label for="videoTitle">Video Title</label>
+        <input id="videoTitle" type="text" placeholder="Example: Ross Coulthart Discusses New Disclosure Claims" />
+    </div>
+
+    <div class="form-row">
+        <label for="videoUrl">YouTube URL</label>
+        <input id="videoUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+    </div>
+
+    <div class="actions">
+        <button onclick="addVideo()">Add Video</button>
+    </div>
+
+    <div id="videoList" class="story-list"></div>
+
+    <hr />
+
+    <div class="actions">
+        <button onclick="publishLive()">Publish Live</button>
+        <button onclick="clearAll()">Clear All Headlines & Videos</button>
+        <button onclick="restoreLastBackup()">Restore Last Backup</button>
+    </div>
+
+    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use â†‘ and â†“ to reorder stories or videos.</p>
+
+    <div class="status" id="status">Status: Ready.</div>
+</div>
+
+<script>
+(function () {
+    const ADMIN_PASSWORD_HASH = "37e045939aaa01251a13306a27c9e559be4100310e9f153725eab6450e719bae";
+    const AUTH_KEY = "disclosurePressAdminUnlocked";
+
+    function toHex(buffer) {
+        return Array.from(new Uint8Array(buffer))
+            .map(byte => byte.toString(16).padStart(2, "0"))
+            .join("");
+    }
+
+    async function sha256(value) {
+        const encoded = new TextEncoder().encode(value);
+        return toHex(await crypto.subtle.digest("SHA-256", encoded));
+    }
+
+    function unlock() {
+        sessionStorage.setItem(AUTH_KEY, "true");
+        document.body.classList.add("authenticated");
+    }
+
+    if (sessionStorage.getItem(AUTH_KEY) === "true") {
+        document.addEventListener("DOMContentLoaded", unlock);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("authForm");
+        const input = document.getElementById("adminPassword");
+        const error = document.getElementById("authError");
+
+        form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            error.textContent = "";
+
+            const submittedHash = await sha256(input.value);
+
+            if (submittedHash === ADMIN_PASSWORD_HASH) {
+                input.value = "";
+                unlock();
+                return;
+            }
+
+            input.value = "";
+            error.textContent = "Incorrect password.";
+            input.focus();
+        });
+    });
+}());
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    
+<script>
+let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
+let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
+let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {};
+
+const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
+const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
+const BACKUP_DATE_KEY = "disclosurePressBackupDate";
+    
+function loadSettings() {
+    document.getElementById("githubOwner").value = settings.owner || "";
+    document.getElementById("githubRepo").value = settings.repo || "";
+    document.getElementById("githubBranch").value = settings.branch || "main";
+    document.getElementById("githubPath").value = settings.path || "index.html";
+    document.getElementById("githubToken").value = settings.token || "";
+}
+
+function saveSettings() {
+    settings = {
+        owner: document.getElementById("githubOwner").value.trim(),
+        repo: document.getElementById("githubRepo").value.trim(),
+        branch: document.getElementById("githubBranch").value.trim() || "main",
+        path: document.getElementById("githubPath").value.trim() || "index.html",
+        token: document.getElementById("githubToken").value.trim()
+    };
+
+    localStorage.setItem("disclosurePressSettings", JSON.stringify(settings));
+    setStatus("Publishing settings saved.");
+}
+
+function saveBackup() {
+    localStorage.setItem(BACKUP_STORIES_KEY, JSON.stringify(stories));
+    localStorage.setItem(BACKUP_VIDEOS_KEY, JSON.stringify(videos));
+    localStorage.setItem(BACKUP_DATE_KEY, new Date().toISOString());
+}
+
+function restoreLastBackup() {
+    const backupStories = localStorage.getItem(BACKUP_STORIES_KEY);
+    const backupVideos = localStorage.getItem(BACKUP_VIDEOS_KEY);
+    const backupDate = localStorage.getItem(BACKUP_DATE_KEY);
+
+    if (!backupStories && !backupVideos) {
+        alert("No backup found.");
+        return;
+    }
+
+    const label = backupDate ? new Date(backupDate).toLocaleString() : "unknown time";
+
+    if (!confirm(`Restore backup from ${label}? This will replace the current draft headlines and videos.`)) {
+        return;
+    }
+
+    stories = JSON.parse(backupStories || "[]");
+    videos = JSON.parse(backupVideos || "[]");
+
+    saveDraft();
+    renderStories();
+    renderVideos();
+    setStatus(`Restored backup from ${label}.`);
+}
+
+    
+function saveDraft() {
+    localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
+    localStorage.setItem("disclosurePressVideos", JSON.stringify(videos));
+}
+
+function setStatus(message) {
+    document.getElementById("status").textContent = "Status: " + message;
+}
+
+function addStory() {
+    const headline = document.getElementById("headline").value.trim();
+    const url = document.getElementById("url").value.trim();
+    const color = document.getElementById("color").value;
+    const editIndex = document.getElementById("headlineEditIndex").value;
+
+    if (!headline || !url) {
+        alert("Please enter both a headline and a URL.");
+        return;
+    }
+
+    if (editIndex !== "") {
+        stories[Number(editIndex)] = { headline, url, color };
+        setStatus("Headline updated.");
+    } else {
+        stories.unshift({ headline, url, color });
+        setStatus("Headline added.");
+    }
+
+    saveDraft();
+    renderStories();
+    cancelHeadlineEdit();
+}
+function addVideo() {
+    const title = document.getElementById("videoTitle").value.trim();
+    const url = document.getElementById("videoUrl").value.trim();
+
+    if (!title || !url) {
+        alert("Please enter both a video title and a YouTube URL.");
+        return;
+    }
+
+    videos.unshift({ title, url });
+    saveDraft();
+    renderVideos();
+
+    document.getElementById("videoTitle").value = "";
+    document.getElementById("videoUrl").value = "";
+}
+
+function renderStories() {
+    const list = document.getElementById("storyList");
+    list.innerHTML = "";
+
+    stories.forEach((story, index) => {
+        const item = document.createElement("div");
+        item.className = "story-item";
+
+        const titleWrap = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "story-title " + story.color;
+        title.textContent = story.headline;
+
+        const subtitle = document.createElement("div");
+        subtitle.className = "story-subtitle";
+        subtitle.textContent = story.url;
+
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(subtitle);
+
+        const up = document.createElement("button");
+        up.textContent = "â†‘";
+        up.onclick = () => moveStory(index, -1);
+
+        const down = document.createElement("button");
+        down.textContent = "â†“";
+        down.onclick = () => moveStory(index, 1);
+
+        const edit = document.createElement("button");
+        edit.textContent = "Edit";
+        edit.onclick = () => editStory(index);
+
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = () => deleteStory(index);
+
+        item.appendChild(titleWrap);
+        item.appendChild(up);
+        item.appendChild(down);
+        item.appendChild(edit);
+        item.appendChild(del);
+
+        list.appendChild(item);
+    });
+}
+function renderVideos() {
+    const list = document.getElementById("videoList");
+    list.innerHTML = "";
+
+    [...videos].forEach((video, index) => {
+        const item = document.createElement("div");
+        item.className = "story-item";
+
+        const titleWrap = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "story-title";
+        title.textContent = video.title;
+        const subtitle = document.createElement("div");
+        subtitle.className = "story-subtitle";
+        subtitle.textContent = video.url;
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(subtitle);
+
+        const up = document.createElement("button");
+        up.textContent = "â†‘";
+        up.onclick = () => moveVideo(index, -1);
+
+        const down = document.createElement("button");
+        down.textContent = "â†“";
+        down.onclick = () => moveVideo(index, 1);
+
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = () => deleteVideo(index);
+
+        item.appendChild(titleWrap);
+        item.appendChild(up);
+        item.appendChild(down);
+        item.appendChild(del);
+        list.appendChild(item);
+    });
+}
+
+function editStory(index) {
+    const story = stories[index];
+
+    document.getElementById("headline").value = story.headline;
+    document.getElementById("url").value = story.url;
+    document.getElementById("color").value = story.color || "";
+
+    document.getElementById("headlineEditIndex").value = index;
+    document.getElementById("headlineSubmitButton").textContent = "Save Headline";
+    document.getElementById("cancelHeadlineEditButton").style.display = "inline-block";
+
+    setStatus("Editing headline. Make changes, then click Save Headline.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cancelHeadlineEdit() {
+    document.getElementById("headline").value = "";
+    document.getElementById("url").value = "";
+    document.getElementById("color").value = "";
+    document.getElementById("headlineEditIndex").value = "";
+
+    document.getElementById("headlineSubmitButton").textContent = "Add Headline";
+    document.getElementById("cancelHeadlineEditButton").style.display = "none";
+
+    setStatus("Headline edit canceled.");
+}
+    
+function moveStory(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= stories.length) return;
+    [stories[index], stories[newIndex]] = [stories[newIndex], stories[index]];
+    saveDraft();
+    renderStories();
+}
+
+function moveVideo(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= videos.length) return;
+    [videos[index], videos[newIndex]] = [videos[newIndex], videos[index]];
+    saveDraft();
+    renderVideos();
+}
+
+function deleteStory(index) {
+    stories.splice(index, 1);
+    saveDraft();
+    renderStories();
+}
+
+function deleteVideo(index) {
+    videos.splice(index, 1);
+    saveDraft();
+    renderVideos();
+}
+
+function clearAll() {
+    if (!confirm("Clear all saved headlines and videos? A backup will be saved first.")) return;
+
+    saveBackup();
+
+    stories = [];
+    videos = [];
+    saveDraft();
+    renderStories();
+    renderVideos();
+    setStatus("Cleared all headlines and videos. Backup saved.");
+}
+
+
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+    }[tag]));
+}
+
+function getYouTubeId(url) {
+    const patterns = [
+        /youtube\.com\/watch\?v=([^&]+)/,
+        /youtu\.be\/([^?&]+)/,
+        /youtube\.com\/embed\/([^?&]+)/,
+        /youtube\.com\/shorts\/([^?&]+)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+    }
+
+    return null;
+}
+
+function getEmbedUrl(url) {
+    const id = getYouTubeId(url);
+    return id ? `https://www.youtube.com/embed/${id}` : url;
+}
+
+function generateHeadlineHTML() {
+    return stories.map(story => {
+        const colorClass = story.color ? " " + story.color : "";
+        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(story.headline)}</a></div>`;
+    }).join("\n");
+}
+
+function generateMobileVideoHTML() {
+    const mobileVideos = videos.slice(0, 20);
+
+    if (mobileVideos.length === 0) {
+        return `<div class="mobile-video-dock"></div>`;
+    }
+
+    return `<div class="mobile-video-dock">
+${mobileVideos.map(video => {
+    const id = getYouTubeId(video.url);
+    const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
+    const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+
+    return `<div class="video">
+<a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
+<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb" alt="${escapeHTML(video.title)}" loading="lazy">
+</a>
+<div class="video-title">${escapeHTML(video.title)}</div>
+</div>`;
+}).join("\n")}
+</div>`;
+}
+    
+function generateVideoHTML() {
+    return videos.map(video => {
+        const id = getYouTubeId(video.url);
+        const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
+        const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+
+        return `<div class="video">
+<a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
+<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb">
+</a>
+<div class="video-title">${escapeHTML(video.title)}</div>
+</div>`;
+    }).join("\n");
+}
+
+async function publishLive() {
+    saveSettings();
+
+    if (!settings.owner || !settings.repo || !settings.branch || !settings.path || !settings.token) {
+        alert("Please complete and save your GitHub publishing settings first.");
+        return;
+    }
+
+    setStatus("Fetching current site file from GitHub...");
+
+    const apiUrl = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${settings.path}?ref=${settings.branch}`;
+
+    const getResponse = await fetch(apiUrl, {
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json"
+        }
+    });
+
+    if (!getResponse.ok) {
+        setStatus("Error fetching file. Check owner, repo, branch, file path, and token permissions.");
+        return;
+    }
+
+    const fileData = await getResponse.json();
+    const currentHTML = decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))));
+
+    const headlineStart = "<!-- HEADLINES START -->";
+    const headlineEnd = "<!-- HEADLINES END -->";
+    
+    const videoStart = "<!-- VIDEOS START -->";
+    const videoEnd = "<!-- VIDEOS END -->";
+    
+    const mobileVideoStart = "<!-- MOBILE VIDEO START -->";
+    const mobileVideoEnd = "<!-- MOBILE VIDEO END -->";
+
+    if (!currentHTML.includes(headlineStart) || !currentHTML.includes(headlineEnd)) {
+        setStatus("Error: index.html needs HEADLINES START and HEADLINES END markers.");
+        alert("Your index.html file must contain these exact markers:\n\n<!-- HEADLINES START -->\n<!-- HEADLINES END -->");
+        return;
+    }
+
+    if (!currentHTML.includes(videoStart) || !currentHTML.includes(videoEnd)) {
+        setStatus("Error: index.html needs VIDEOS START and VIDEOS END markers.");
+        alert("Your index.html file must contain these exact markers around your video section:\n\n<!-- VIDEOS START -->\n<!-- VIDEOS END -->");
+        return;
+    }
+
+    const headlineHTML = generateHeadlineHTML();
+    const videoHTML = generateVideoHTML();
+    const mobileVideoHTML = generateMobileVideoHTML();
+
+    let updatedHTML = currentHTML.replace(
+        new RegExp(`${headlineStart}[\\s\\S]*?${headlineEnd}`),
+        `${headlineStart}\n${headlineHTML}\n${headlineEnd}`
+    );
+
+    updatedHTML = updatedHTML.replace(
+        new RegExp(`${videoStart}[\\s\\S]*?${videoEnd}`),
+        `${videoStart}\n${videoHTML}\n${videoEnd}`
+    );
+
+    updatedHTML = updatedHTML.replace(
+    new RegExp(`${mobileVideoStart}[\\s\\S]*?${mobileVideoEnd}`),
+    `${mobileVideoStart}\n${mobileVideoHTML}\n${mobileVideoEnd}`
+);
+
+    setStatus("Publishing updated headlines and videos to GitHub...");
+
+    const encodedContent = btoa(unescape(encodeURIComponent(updatedHTML)));
+
+    const putResponse = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+            "Authorization": `Bearer ${settings.token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: "Update Disclosure Press headlines and videos",
+            content: encodedContent,
+            sha: fileData.sha,
+            branch: settings.branch
+        })
+    });
+
+    if (!putResponse.ok) {
+        setStatus("Error publishing. Token may lack Contents: Read and Write permission.");
+        return;
+    }
+
+    setStatus("Published successfully. Cloudflare should redeploy your site automatically.");
+}
+
+loadSettings();
+renderStories();
+renderVideos();
+</script>
+
+</body>
+</html>
