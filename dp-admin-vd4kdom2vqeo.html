@@ -242,7 +242,6 @@ body:not(.authenticated) .admin-wrap {
 
 <div class="actions">
     <button id="headlineSubmitButton" onclick="addStory()">Add Headline</button>
-    <button onclick="importScoutQueue()">Import Scout Queue</button>
     <button id="cancelHeadlineEditButton" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
 </div>
 
@@ -490,7 +489,7 @@ async function importScoutQueue(options = {}) {
         saveDraft();
         renderStories();
 
-        await fetch(scoutEndpoint("/pending/clear"), {
+        const clearResponse = await fetch(scoutEndpoint("/pending/clear"), {
             method: "POST",
             headers: {
                 "Accept": "application/json",
@@ -501,7 +500,13 @@ async function importScoutQueue(options = {}) {
             })
         });
 
-        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} from Scout.`);
+        const clearData = await clearResponse.json().catch(() => ({}));
+
+        if (!clearResponse.ok) {
+            throw new Error(clearData.error || `Imported articles, but Scout queue clear returned ${clearResponse.status}`);
+        }
+
+        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} from Scout and cleared the queue.`);
     } catch (error) {
         if (silent) {
             console.warn(`Scout import error: ${error.message}`);
