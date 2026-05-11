@@ -432,8 +432,19 @@ function scoutEndpoint(path) {
     return new URL(path, SCOUT_WORKER_URL).toString();
 }
 
-async function importScoutQueue() {
-    setStatus("Importing queued Scout articles...");
+function syncDraftFromStorage() {
+    stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
+    videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
+    renderStories();
+    renderVideos();
+}
+
+async function importScoutQueue(options = {}) {
+    const silent = options.silent === true;
+
+    if (!silent) {
+        setStatus("Importing queued Scout articles...");
+    }
 
     try {
         const response = await fetch(scoutEndpoint("/pending"), {
@@ -452,7 +463,9 @@ async function importScoutQueue() {
         const queuedArticles = Array.isArray(data.articles) ? data.articles : [];
 
         if (!queuedArticles.length) {
-            setStatus("No queued Scout articles found.");
+            if (!silent) {
+                setStatus("No queued Scout articles found.");
+            }
             return;
         }
 
@@ -466,7 +479,9 @@ async function importScoutQueue() {
             }));
 
         if (!importedStories.length) {
-            setStatus("Scout queue had no new articles to import.");
+            if (!silent) {
+                setStatus("Scout queue had no new articles to import.");
+            }
             return;
         }
 
@@ -486,9 +501,13 @@ async function importScoutQueue() {
             })
         });
 
-        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"}.`);
+        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} from Scout.`);
     } catch (error) {
-        setStatus(`Scout import error: ${error.message}`);
+        if (silent) {
+            console.warn(`Scout import error: ${error.message}`);
+        } else {
+            setStatus(`Scout import error: ${error.message}`);
+        }
     }
 }
 
@@ -834,6 +853,14 @@ async function publishLive() {
 loadSettings();
 renderStories();
 renderVideos();
+importScoutQueue({ silent: true });
+
+window.addEventListener("storage", event => {
+    if (event.key === "disclosurePressStories" || event.key === "disclosurePressVideos") {
+        syncDraftFromStorage();
+        setStatus("Scout updates loaded.");
+    }
+});
 </script>
 
 </body>
