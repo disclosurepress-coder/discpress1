@@ -242,6 +242,7 @@ body:not(.authenticated) .admin-wrap {
 
 <div class="actions">
     <button id="headlineSubmitButton" onclick="addStory()">Add Headline</button>
+    <button onclick="importScoutQueue()">Import Scout Queue</button>
     <button id="cancelHeadlineEditButton" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
 </div>
 
@@ -339,6 +340,7 @@ let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {}
 const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
 const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
 const BACKUP_DATE_KEY = "disclosurePressBackupDate";
+const SCOUT_WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
     
 function loadSettings() {
     document.getElementById("githubOwner").value = settings.owner || "";
@@ -425,6 +427,71 @@ function addStory() {
     renderStories();
     cancelHeadlineEdit();
 }
+
+function scoutEndpoint(path) {
+    return new URL(path, SCOUT_WORKER_URL).toString();
+}
+
+async function importScoutQueue() {
+    setStatus("Importing queued Scout articles...");
+
+    try {
+        const response = await fetch(scoutEndpoint("/pending"), {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || `Scout Worker returned ${response.status}`);
+        }
+
+        const queuedArticles = Array.isArray(data.articles) ? data.articles : [];
+
+        if (!queuedArticles.length) {
+            setStatus("No queued Scout articles found.");
+            return;
+        }
+
+        const existingUrls = new Set(stories.map(story => story.url));
+        const importedStories = queuedArticles
+            .filter(article => article.url && !existingUrls.has(article.url))
+            .map(article => ({
+                headline: article.title || "Untitled article",
+                url: article.url,
+                color: ""
+            }));
+
+        if (!importedStories.length) {
+            setStatus("Scout queue had no new articles to import.");
+            return;
+        }
+
+        saveBackup();
+        stories = [...importedStories, ...stories];
+        saveDraft();
+        renderStories();
+
+        await fetch(scoutEndpoint("/pending/clear"), {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                urls: importedStories.map(story => story.url)
+            })
+        });
+
+        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+        setStatus(`Scout import error: ${error.message}`);
+    }
+}
+
 function addVideo() {
     const title = document.getElementById("videoTitle").value.trim();
     const url = document.getElementById("videoUrl").value.trim();
