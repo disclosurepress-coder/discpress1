@@ -182,7 +182,6 @@ button:disabled {
         <div class="topbar">
             <h1 id="pageTitle">Disclosure Press Scout</h1>
             <div class="controls">
-                <input class="search-input" id="queryInput" type="search" value="NASA" aria-label="Search topic">
                 <button id="runScoutButton" type="button">Run Scout</button>
             </div>
         </div>
@@ -200,16 +199,10 @@ const SCOUT_SEEN_URLS_KEY = "disclosurePressScoutSeenUrls";
 let currentResults = [];
 
 const runScoutButton = document.getElementById("runScoutButton");
-const queryInput = document.getElementById("queryInput");
 const statusBox = document.getElementById("status");
 const resultsBox = document.getElementById("results");
 
 runScoutButton.addEventListener("click", runScout);
-queryInput.addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-        runScout();
-    }
-});
 
 function setStatus(message, isError = false) {
     statusBox.textContent = message;
@@ -416,9 +409,8 @@ async function runScout() {
         return;
     }
 
-    const query = queryInput.value.trim() || "UFO";
     const requestUrl = new URL(workerUrl);
-    requestUrl.searchParams.set("q", query);
+    requestUrl.searchParams.set("q", "all");
 
     runScoutButton.disabled = true;
     setStatus("Scanning sources...");
