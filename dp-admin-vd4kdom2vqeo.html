@@ -438,6 +438,31 @@ function syncDraftFromStorage() {
     renderVideos();
 }
 
+async function clearScoutQueueUrls(urls) {
+    const uniqueUrls = [...new Set(urls.filter(Boolean))];
+
+    if (!uniqueUrls.length) {
+        return;
+    }
+
+    const response = await fetch(scoutEndpoint("/pending/clear"), {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            urls: uniqueUrls
+        })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || `Scout queue clear returned ${response.status}`);
+    }
+}
+
 async function importScoutQueue(options = {}) {
     const silent = options.silent === true;
 
@@ -489,22 +514,7 @@ async function importScoutQueue(options = {}) {
         saveDraft();
         renderStories();
 
-        const clearResponse = await fetch(scoutEndpoint("/pending/clear"), {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                urls: importedStories.map(story => story.url)
-            })
-        });
-
-        const clearData = await clearResponse.json().catch(() => ({}));
-
-        if (!clearResponse.ok) {
-            throw new Error(clearData.error || `Imported articles, but Scout queue clear returned ${clearResponse.status}`);
-        }
+        await clearScoutQueueUrls(importedStories.map(story => story.url));
 
         setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} from Scout and cleared the queue.`);
     } catch (error) {
@@ -864,6 +874,13 @@ window.addEventListener("storage", event => {
     if (event.key === "disclosurePressStories" || event.key === "disclosurePressVideos") {
         syncDraftFromStorage();
         setStatus("Scout updates loaded.");
+
+        if (event.key === "disclosurePressStories") {
+            const updatedStories = JSON.parse(event.newValue || "[]");
+            clearScoutQueueUrls(updatedStories.map(story => story.url))
+                .then(() => setStatus("Scout updates loaded and queue cleared."))
+                .catch(error => setStatus(`Scout queue clear error: ${error.message}`));
+        }
     }
 });
 </script>
