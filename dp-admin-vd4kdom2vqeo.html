@@ -275,7 +275,7 @@ body:not(.authenticated) .admin-wrap {
         <button onclick="restoreLastBackup()">Restore Last Backup</button>
     </div>
 
-    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use â†‘ and â†“ to reorder stories or videos.</p>
+    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use the up and down arrows to reorder stories or videos.</p>
 
     <div class="status" id="status">Status: Ready.</div>
 </div>
@@ -463,11 +463,11 @@ function renderStories() {
         titleWrap.appendChild(subtitle);
 
         const up = document.createElement("button");
-        up.textContent = "â†‘";
+        up.textContent = String.fromCharCode(8593);
         up.onclick = () => moveStory(index, -1);
 
         const down = document.createElement("button");
-        down.textContent = "â†“";
+        down.textContent = String.fromCharCode(8595);
         down.onclick = () => moveStory(index, 1);
 
         const edit = document.createElement("button");
@@ -506,11 +506,11 @@ function renderVideos() {
         titleWrap.appendChild(subtitle);
 
         const up = document.createElement("button");
-        up.textContent = "â†‘";
+        up.textContent = String.fromCharCode(8593);
         up.onclick = () => moveVideo(index, -1);
 
         const down = document.createElement("button");
-        down.textContent = "â†“";
+        down.textContent = String.fromCharCode(8595);
         down.onclick = () => moveVideo(index, 1);
 
         const del = document.createElement("button");
