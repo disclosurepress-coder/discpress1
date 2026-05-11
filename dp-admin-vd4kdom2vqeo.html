@@ -179,42 +179,8 @@ body:not(.authenticated) .admin-wrap {
     <h1>DISCLOSURE PRESS ADMIN</h1>
 
     <div class="warning">
-        <strong>How publishing works:</strong> this dashboard updates your <code>index.html</code> file in GitHub. If Cloudflare is connected to that GitHub repository, it should automatically redeploy the live site after you click <strong>Publish Live</strong>.
+        <strong>How publishing works:</strong> this dashboard sends approved headlines and videos to a secure Cloudflare Worker. The Worker updates <code>index.html</code> in GitHub, and Cloudflare should automatically redeploy the live site after you click <strong>Publish Live</strong>.
     </div>
-
-    <h2>GitHub Publishing Settings</h2>
-
-    <div class="form-row">
-        <label for="githubOwner">GitHub Username / Organization</label>
-        <input id="githubOwner" type="text" placeholder="Example: disclosurepress-coder" />
-    </div>
-
-    <div class="form-row">
-        <label for="githubRepo">Repository Name</label>
-        <input id="githubRepo" type="text" placeholder="Example: discpress1" />
-    </div>
-
-    <div class="form-row">
-        <label for="githubBranch">Branch</label>
-        <input id="githubBranch" type="text" value="main" />
-    </div>
-
-    <div class="form-row">
-        <label for="githubPath">File to Update</label>
-        <input id="githubPath" type="text" value="index.html" />
-    </div>
-
-    <div class="form-row">
-        <label for="githubToken">GitHub Fine-Grained Personal Access Token</label>
-        <input id="githubToken" type="password" placeholder="Paste token here" />
-        <p class="note">Use a fine-grained token limited to this one repository with <strong>Contents: Read and Write</strong>. Metadata can stay <strong>Read-only</strong>. The token is saved only in this browser using localStorage.</p>
-    </div>
-
-    <div class="actions">
-        <button onclick="saveSettings()">Save Publishing Settings</button>
-    </div>
-
-    <hr />
 
     <h2>Add Headline</h2>
 
@@ -271,7 +237,6 @@ body:not(.authenticated) .admin-wrap {
 
     <div class="actions">
         <button onclick="publishLive()">Publish Live</button>
-        <button onclick="clearAll()">Clear All Headlines & Videos</button>
         <button onclick="restoreLastBackup()">Restore Last Backup</button>
     </div>
 
@@ -282,7 +247,7 @@ body:not(.authenticated) .admin-wrap {
 
 <script>
 (function () {
-    const ADMIN_PASSWORD_HASH = "cc77458bc0dee7bf389616589b7b0fa30cb55c9a91a3484d89048c2dc94d9ccd";
+    const ADMIN_PASSWORD_HASH = "37e045939aaa01251a13306a27c9e559be4100310e9f153725eab6450e719bae";
     const AUTH_KEY = "disclosurePressAdminUnlocked";
 
     function toHex(buffer) {
@@ -334,33 +299,11 @@ body:not(.authenticated) .admin-wrap {
 <script>
 let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
 let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
-let settings = JSON.parse(localStorage.getItem("disclosurePressSettings")) || {};
 
 const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
 const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
 const BACKUP_DATE_KEY = "disclosurePressBackupDate";
 const SCOUT_WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
-    
-function loadSettings() {
-    document.getElementById("githubOwner").value = settings.owner || "";
-    document.getElementById("githubRepo").value = settings.repo || "";
-    document.getElementById("githubBranch").value = settings.branch || "main";
-    document.getElementById("githubPath").value = settings.path || "index.html";
-    document.getElementById("githubToken").value = settings.token || "";
-}
-
-function saveSettings() {
-    settings = {
-        owner: document.getElementById("githubOwner").value.trim(),
-        repo: document.getElementById("githubRepo").value.trim(),
-        branch: document.getElementById("githubBranch").value.trim() || "main",
-        path: document.getElementById("githubPath").value.trim() || "index.html",
-        token: document.getElementById("githubToken").value.trim()
-    };
-
-    localStorage.setItem("disclosurePressSettings", JSON.stringify(settings));
-    setStatus("Publishing settings saved.");
-}
 
 function saveBackup() {
     localStorage.setItem(BACKUP_STORIES_KEY, JSON.stringify(stories));
@@ -681,20 +624,6 @@ function deleteVideo(index) {
     renderVideos();
 }
 
-function clearAll() {
-    if (!confirm("Clear all saved headlines and videos? A backup will be saved first.")) return;
-
-    saveBackup();
-
-    stories = [];
-    videos = [];
-    saveDraft();
-    renderStories();
-    renderVideos();
-    setStatus("Cleared all headlines and videos. Backup saved.");
-}
-
-
 function escapeHTML(str) {
     return str.replace(/[&<>'"]/g, tag => ({
         '&': '&amp;',
@@ -772,100 +701,39 @@ function generateVideoHTML() {
 }
 
 async function publishLive() {
-    saveSettings();
+    saveDraft();
 
-    if (!settings.owner || !settings.repo || !settings.branch || !settings.path || !settings.token) {
-        alert("Please complete and save your GitHub publishing settings first.");
+    if (!confirm(`Publish ${stories.length} headline${stories.length === 1 ? "" : "s"} and ${videos.length} video${videos.length === 1 ? "" : "s"} to the live site?`)) {
         return;
     }
 
-    setStatus("Fetching current site file from GitHub...");
+    setStatus("Publishing through secure Cloudflare Worker...");
 
-    const apiUrl = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${settings.path}?ref=${settings.branch}`;
+    try {
+        const response = await fetch(scoutEndpoint("/publish"), {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                stories,
+                videos
+            })
+        });
 
-    const getResponse = await fetch(apiUrl, {
-        headers: {
-            "Authorization": `Bearer ${settings.token}`,
-            "Accept": "application/vnd.github+json"
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || data.message || `Publish Worker returned ${response.status}`);
         }
-    });
 
-    if (!getResponse.ok) {
-        setStatus("Error fetching file. Check owner, repo, branch, file path, and token permissions.");
-        return;
+        setStatus(data.message || "Published successfully. Cloudflare should redeploy your site automatically.");
+    } catch (error) {
+        setStatus(`Publish error: ${error.message}`);
     }
-
-    const fileData = await getResponse.json();
-    const currentHTML = decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))));
-
-    const headlineStart = "<!-- HEADLINES START -->";
-    const headlineEnd = "<!-- HEADLINES END -->";
-    
-    const videoStart = "<!-- VIDEOS START -->";
-    const videoEnd = "<!-- VIDEOS END -->";
-    
-    const mobileVideoStart = "<!-- MOBILE VIDEO START -->";
-    const mobileVideoEnd = "<!-- MOBILE VIDEO END -->";
-
-    if (!currentHTML.includes(headlineStart) || !currentHTML.includes(headlineEnd)) {
-        setStatus("Error: index.html needs HEADLINES START and HEADLINES END markers.");
-        alert("Your index.html file must contain these exact markers:\n\n<!-- HEADLINES START -->\n<!-- HEADLINES END -->");
-        return;
-    }
-
-    if (!currentHTML.includes(videoStart) || !currentHTML.includes(videoEnd)) {
-        setStatus("Error: index.html needs VIDEOS START and VIDEOS END markers.");
-        alert("Your index.html file must contain these exact markers around your video section:\n\n<!-- VIDEOS START -->\n<!-- VIDEOS END -->");
-        return;
-    }
-
-    const headlineHTML = generateHeadlineHTML();
-    const videoHTML = generateVideoHTML();
-    const mobileVideoHTML = generateMobileVideoHTML();
-
-    let updatedHTML = currentHTML.replace(
-        new RegExp(`${headlineStart}[\\s\\S]*?${headlineEnd}`),
-        `${headlineStart}\n${headlineHTML}\n${headlineEnd}`
-    );
-
-    updatedHTML = updatedHTML.replace(
-        new RegExp(`${videoStart}[\\s\\S]*?${videoEnd}`),
-        `${videoStart}\n${videoHTML}\n${videoEnd}`
-    );
-
-    updatedHTML = updatedHTML.replace(
-    new RegExp(`${mobileVideoStart}[\\s\\S]*?${mobileVideoEnd}`),
-    `${mobileVideoStart}\n${mobileVideoHTML}\n${mobileVideoEnd}`
-);
-
-    setStatus("Publishing updated headlines and videos to GitHub...");
-
-    const encodedContent = btoa(unescape(encodeURIComponent(updatedHTML)));
-
-    const putResponse = await fetch(apiUrl, {
-        method: "PUT",
-        headers: {
-            "Authorization": `Bearer ${settings.token}`,
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            message: "Update Disclosure Press headlines and videos",
-            content: encodedContent,
-            sha: fileData.sha,
-            branch: settings.branch
-        })
-    });
-
-    if (!putResponse.ok) {
-        setStatus("Error publishing. Token may lack Contents: Read and Write permission.");
-        return;
-    }
-
-    setStatus("Published successfully. Cloudflare should redeploy your site automatically.");
 }
 
-loadSettings();
 renderStories();
 renderVideos();
 importScoutQueue({ silent: true });
