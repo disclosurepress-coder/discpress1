@@ -139,6 +139,35 @@ button:hover {
     margin-top: 8px;
 }
 
+.scout-results {
+    margin-top: 15px;
+    border-top: 1px solid #ccc;
+}
+
+.scout-result {
+    padding: 12px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.scout-result-title {
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.scout-result-meta {
+    font-size: 13px;
+    color: #555;
+    margin-top: 4px;
+    word-break: break-all;
+}
+
+.scout-result-description {
+    font-size: 14px;
+    color: #333;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
 .auth-screen {
     min-height: calc(100vh - 40px);
     display: flex;
@@ -198,11 +227,11 @@ body:not(.authenticated) .admin-wrap {
         <h2>Scout</h2>
         <div class="actions">
             <button type="button" onclick="runScout()">Run Scout</button>
-            <button type="button" onclick="importScoutQueue()">Import Queued Scout Articles</button>
             <button type="button" onclick="refreshScoutPendingCount()">Refresh Scout Queue Count</button>
         </div>
         <div class="scout-count" id="scoutCount">Scout queue: unknown.</div>
-        <p class="note">Run Scout checks fresh sources, queues new articles, imports them into the draft headlines, and clears imported queue items.</p>
+        <p class="note">Run Scout shows fresh candidate headlines below. Use Add Headline to move one to the top of the headline stack, or Reject to hide it permanently.</p>
+        <div class="scout-results" id="scoutResults"></div>
     </div>
 
     <h2>Add Headline</h2>
@@ -322,6 +351,7 @@ body:not(.authenticated) .admin-wrap {
 <script>
 let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
 let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
+let scoutCandidates = [];
 
 const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
 const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
@@ -421,17 +451,6 @@ async function fetchJson(url, options = {}) {
     return data;
 }
 
-async function queueScoutArticle(article) {
-    return fetchJson(scoutEndpoint("/queue"), {
-        method: "POST",
-        headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(article)
-    });
-}
-
 async function clearScoutQueueUrls(urls) {
     const uniqueUrls = [...new Set(urls.filter(Boolean))];
 
@@ -448,6 +467,21 @@ async function clearScoutQueueUrls(urls) {
         body: JSON.stringify({
             urls: uniqueUrls
         })
+    });
+}
+
+async function markScoutArticleHandled(article) {
+    if (article.url) {
+        await clearScoutQueueUrls([article.url]);
+    }
+
+    await fetchJson(scoutEndpoint("/reject"), {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(article)
     });
 }
 
@@ -479,101 +513,129 @@ async function runScout() {
             }
         });
 
-        const articles = Array.isArray(scoutData.articles) ? scoutData.articles : [];
+        scoutCandidates = Array.isArray(scoutData.articles) ? scoutData.articles : [];
+        renderScoutResults();
 
-        if (!articles.length) {
+        if (!scoutCandidates.length) {
             setStatus("Scout found no new articles.");
-            await refreshScoutPendingCount();
-            return;
+        } else {
+            setStatus(`Scout found ${scoutCandidates.length} article${scoutCandidates.length === 1 ? "" : "s"} for review.`);
         }
 
-        let queuedCount = 0;
-        let alreadyQueuedCount = 0;
-
-        for (const article of articles) {
-            const queueResult = await queueScoutArticle(article);
-            if (queueResult.queued) {
-                queuedCount += 1;
-            } else {
-                alreadyQueuedCount += 1;
-            }
-        }
-
-        setStatus(`Scout found ${articles.length} article${articles.length === 1 ? "" : "s"} and queued ${queuedCount}. Importing...`);
-        await importScoutQueue({ silent: true });
-
-        if (alreadyQueuedCount > 0) {
-            setStatus(`Scout finished. ${queuedCount} queued, ${alreadyQueuedCount} already queued, then imported into draft.`);
-        }
+        await refreshScoutPendingCount();
     } catch (error) {
         setStatus(`Scout error: ${error.message}`);
     }
 }
 
-async function importScoutQueue(options = {}) {
-    const silent = options.silent === true;
+function renderScoutResults() {
+    const list = document.getElementById("scoutResults");
+    list.innerHTML = "";
 
-    if (!silent) {
-        setStatus("Importing queued Scout articles...");
+    if (!scoutCandidates.length) {
+        list.innerHTML = `<p class="note">No Scout results loaded.</p>`;
+        return;
     }
 
+    scoutCandidates.forEach((article, index) => {
+        const item = document.createElement("div");
+        item.className = "scout-result";
+
+        const title = document.createElement("div");
+        title.className = "scout-result-title";
+        title.textContent = article.title || "Untitled article";
+
+        const meta = document.createElement("div");
+        meta.className = "scout-result-meta";
+        meta.textContent = `${article.source || "Unknown source"} | ${article.publishedAt || "No date"} | ${article.url || ""}`;
+
+        const description = document.createElement("div");
+        description.className = "scout-result-description";
+        description.textContent = article.description || "";
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const add = document.createElement("button");
+        add.type = "button";
+        add.textContent = "Add Headline";
+        add.onclick = () => addScoutHeadline(index);
+
+        const reject = document.createElement("button");
+        reject.type = "button";
+        reject.textContent = "Reject";
+        reject.onclick = () => rejectScoutHeadline(index);
+
+        actions.appendChild(add);
+        actions.appendChild(reject);
+
+        item.appendChild(title);
+        item.appendChild(meta);
+        item.appendChild(description);
+        item.appendChild(actions);
+
+        list.appendChild(item);
+    });
+}
+
+async function addScoutHeadline(index) {
+    const article = scoutCandidates[index];
+
+    if (!article) {
+        return;
+    }
+
+    const headline = article.title || "Untitled article";
+    const url = article.url || "";
+
+    if (!url) {
+        setStatus("Scout article is missing a URL.");
+        return;
+    }
+
+    const exists = stories.some(story => story.url === url);
+
     try {
-        const data = await fetchJson(scoutEndpoint("/pending"), {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
-        const queuedArticles = Array.isArray(data.articles) ? data.articles : [];
-
-        if (!queuedArticles.length) {
-            if (!silent) {
-                setStatus("No queued Scout articles found.");
-            }
-            setScoutCount("Scout queue: 0 articles.");
-            return;
-        }
-
-        const existingUrls = new Set(stories.map(story => story.url));
-        const importedStories = queuedArticles
-            .filter(article => article.url && !existingUrls.has(article.url))
-            .map(article => ({
-                headline: article.title || "Untitled article",
-                url: article.url,
-                color: ""
-            }));
-
-        const queueUrlsToClear = queuedArticles
-            .filter(article => article.url && (importedStories.some(story => story.url === article.url) || existingUrls.has(article.url)))
-            .map(article => article.url);
-
-        if (importedStories.length) {
+        if (!exists) {
             saveBackup();
-            stories = [...importedStories, ...stories];
+            stories.unshift({
+                headline,
+                url,
+                color: ""
+            });
             saveDraft();
             renderStories();
         }
 
-        if (queueUrlsToClear.length) {
-            await clearScoutQueueUrls(queueUrlsToClear);
-        }
+        await markScoutArticleHandled(article);
 
+        scoutCandidates.splice(index, 1);
+        renderScoutResults();
         await refreshScoutPendingCount();
 
-        if (!importedStories.length) {
-            setStatus("Scout queue had no new articles to import.");
-            return;
-        }
-
-        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} into draft headlines.`);
+        setStatus(exists ? "Scout headline was already in the stack and has been marked handled." : "Scout headline added to top of stack.");
     } catch (error) {
-        if (silent) {
-            console.warn(`Scout import error: ${error.message}`);
-            setStatus(`Scout import error: ${error.message}`);
-        } else {
-            setStatus(`Scout import error: ${error.message}`);
-        }
+        setStatus(`Scout add error: ${error.message}`);
+    }
+}
+
+async function rejectScoutHeadline(index) {
+    const article = scoutCandidates[index];
+
+    if (!article) {
+        return;
+    }
+
+    try {
+        await markScoutArticleHandled(article);
+
+        scoutCandidates.splice(index, 1);
+        renderScoutResults();
+        await refreshScoutPendingCount();
+
+        setStatus("Scout headline rejected.");
+    } catch (error) {
+        setStatus(`Scout reject error: ${error.message}`);
     }
 }
 
@@ -847,6 +909,7 @@ async function publishLive() {
 
 renderStories();
 renderVideos();
+renderScoutResults();
 refreshScoutPendingCount().catch(() => {});
 
 window.addEventListener("storage", event => {
