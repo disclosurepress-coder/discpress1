@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Disclosure Press Admin</title>
 <style>
-
 .drag-handle {
     cursor: grab;
     font-size: 20px;
@@ -13,7 +12,7 @@
     padding: 0 8px;
     user-select: none;
 }
-    
+
 body {
     font-family: Arial, Helvetica, sans-serif;
     background: #f4f4f4;
@@ -127,6 +126,19 @@ button:hover {
     margin-bottom: 20px;
 }
 
+.scout-box {
+    border: 1px solid #ccc;
+    background: #fafafa;
+    padding: 14px;
+    margin: 20px 0;
+}
+
+.scout-count {
+    font-size: 14px;
+    color: #555;
+    margin-top: 8px;
+}
+
 .auth-screen {
     min-height: calc(100vh - 40px);
     display: flex;
@@ -182,6 +194,17 @@ body:not(.authenticated) .admin-wrap {
         <strong>How publishing works:</strong> this dashboard sends approved headlines and videos to a secure Cloudflare Worker. The Worker updates <code>index.html</code> in GitHub, and Cloudflare should automatically redeploy the live site after you click <strong>Publish Live</strong>.
     </div>
 
+    <div class="scout-box">
+        <h2>Scout</h2>
+        <div class="actions">
+            <button type="button" onclick="runScout()">Run Scout</button>
+            <button type="button" onclick="importScoutQueue()">Import Queued Scout Articles</button>
+            <button type="button" onclick="refreshScoutPendingCount()">Refresh Scout Queue Count</button>
+        </div>
+        <div class="scout-count" id="scoutCount">Scout queue: unknown.</div>
+        <p class="note">Run Scout checks fresh sources, queues new articles, imports them into the draft headlines, and clears imported queue items.</p>
+    </div>
+
     <h2>Add Headline</h2>
 
     <div class="form-row">
@@ -206,10 +229,10 @@ body:not(.authenticated) .admin-wrap {
 
     <input id="headlineEditIndex" type="hidden" value="" />
 
-<div class="actions">
-    <button id="headlineSubmitButton" onclick="addStory()">Add Headline</button>
-    <button id="cancelHeadlineEditButton" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
-</div>
+    <div class="actions">
+        <button id="headlineSubmitButton" type="button" onclick="addStory()">Add Headline</button>
+        <button id="cancelHeadlineEditButton" type="button" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
+    </div>
 
     <div id="storyList" class="story-list"></div>
 
@@ -228,7 +251,7 @@ body:not(.authenticated) .admin-wrap {
     </div>
 
     <div class="actions">
-        <button onclick="addVideo()">Add Video</button>
+        <button type="button" onclick="addVideo()">Add Video</button>
     </div>
 
     <div id="videoList" class="story-list"></div>
@@ -236,8 +259,8 @@ body:not(.authenticated) .admin-wrap {
     <hr />
 
     <div class="actions">
-        <button onclick="publishLive()">Publish Live</button>
-        <button onclick="restoreLastBackup()">Restore Last Backup</button>
+        <button type="button" onclick="publishLive()">Publish Live</button>
+        <button type="button" onclick="restoreLastBackup()">Restore Last Backup</button>
     </div>
 
     <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use the up and down arrows to reorder stories or videos.</p>
@@ -295,7 +318,7 @@ body:not(.authenticated) .admin-wrap {
 }());
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    
+
 <script>
 let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
 let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
@@ -336,7 +359,6 @@ function restoreLastBackup() {
     setStatus(`Restored backup from ${label}.`);
 }
 
-    
 function saveDraft() {
     localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
     localStorage.setItem("disclosurePressVideos", JSON.stringify(videos));
@@ -344,6 +366,24 @@ function saveDraft() {
 
 function setStatus(message) {
     document.getElementById("status").textContent = "Status: " + message;
+}
+
+function setScoutCount(message) {
+    const scoutCount = document.getElementById("scoutCount");
+    if (scoutCount) {
+        scoutCount.textContent = message;
+    }
+}
+
+function scoutEndpoint(path) {
+    return new URL(path, SCOUT_WORKER_URL).toString();
+}
+
+function syncDraftFromStorage() {
+    stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
+    videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
+    renderStories();
+    renderVideos();
 }
 
 function addStory() {
@@ -370,15 +410,26 @@ function addStory() {
     cancelHeadlineEdit();
 }
 
-function scoutEndpoint(path) {
-    return new URL(path, SCOUT_WORKER_URL).toString();
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || data.message || `Request returned ${response.status}`);
+    }
+
+    return data;
 }
 
-function syncDraftFromStorage() {
-    stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
-    videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
-    renderStories();
-    renderVideos();
+async function queueScoutArticle(article) {
+    return fetchJson(scoutEndpoint("/queue"), {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(article)
+    });
 }
 
 async function clearScoutQueueUrls(urls) {
@@ -388,7 +439,7 @@ async function clearScoutQueueUrls(urls) {
         return;
     }
 
-    const response = await fetch(scoutEndpoint("/pending/clear"), {
+    await fetchJson(scoutEndpoint("/pending/clear"), {
         method: "POST",
         headers: {
             "Accept": "application/json",
@@ -398,11 +449,64 @@ async function clearScoutQueueUrls(urls) {
             urls: uniqueUrls
         })
     });
+}
 
-    const data = await response.json().catch(() => ({}));
+async function refreshScoutPendingCount() {
+    try {
+        const data = await fetchJson(scoutEndpoint("/pending"), {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
 
-    if (!response.ok) {
-        throw new Error(data.error || `Scout queue clear returned ${response.status}`);
+        setScoutCount(`Scout queue: ${data.count || 0} article${data.count === 1 ? "" : "s"}.`);
+        return data;
+    } catch (error) {
+        setScoutCount(`Scout queue error: ${error.message}`);
+        throw error;
+    }
+}
+
+async function runScout() {
+    setStatus("Running Scout...");
+
+    try {
+        const scoutData = await fetchJson(scoutEndpoint("/?refresh=1"), {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const articles = Array.isArray(scoutData.articles) ? scoutData.articles : [];
+
+        if (!articles.length) {
+            setStatus("Scout found no new articles.");
+            await refreshScoutPendingCount();
+            return;
+        }
+
+        let queuedCount = 0;
+        let alreadyQueuedCount = 0;
+
+        for (const article of articles) {
+            const queueResult = await queueScoutArticle(article);
+            if (queueResult.queued) {
+                queuedCount += 1;
+            } else {
+                alreadyQueuedCount += 1;
+            }
+        }
+
+        setStatus(`Scout found ${articles.length} article${articles.length === 1 ? "" : "s"} and queued ${queuedCount}. Importing...`);
+        await importScoutQueue({ silent: true });
+
+        if (alreadyQueuedCount > 0) {
+            setStatus(`Scout finished. ${queuedCount} queued, ${alreadyQueuedCount} already queued, then imported into draft.`);
+        }
+    } catch (error) {
+        setStatus(`Scout error: ${error.message}`);
     }
 }
 
@@ -414,18 +518,12 @@ async function importScoutQueue(options = {}) {
     }
 
     try {
-        const response = await fetch(scoutEndpoint("/pending"), {
+        const data = await fetchJson(scoutEndpoint("/pending"), {
             method: "GET",
             headers: {
                 "Accept": "application/json"
             }
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || `Scout Worker returned ${response.status}`);
-        }
 
         const queuedArticles = Array.isArray(data.articles) ? data.articles : [];
 
@@ -433,6 +531,7 @@ async function importScoutQueue(options = {}) {
             if (!silent) {
                 setStatus("No queued Scout articles found.");
             }
+            setScoutCount("Scout queue: 0 articles.");
             return;
         }
 
@@ -445,24 +544,33 @@ async function importScoutQueue(options = {}) {
                 color: ""
             }));
 
+        const queueUrlsToClear = queuedArticles
+            .filter(article => article.url && (importedStories.some(story => story.url === article.url) || existingUrls.has(article.url)))
+            .map(article => article.url);
+
+        if (importedStories.length) {
+            saveBackup();
+            stories = [...importedStories, ...stories];
+            saveDraft();
+            renderStories();
+        }
+
+        if (queueUrlsToClear.length) {
+            await clearScoutQueueUrls(queueUrlsToClear);
+        }
+
+        await refreshScoutPendingCount();
+
         if (!importedStories.length) {
-            if (!silent) {
-                setStatus("Scout queue had no new articles to import.");
-            }
+            setStatus("Scout queue had no new articles to import.");
             return;
         }
 
-        saveBackup();
-        stories = [...importedStories, ...stories];
-        saveDraft();
-        renderStories();
-
-        await clearScoutQueueUrls(importedStories.map(story => story.url));
-
-        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} from Scout and cleared the queue.`);
+        setStatus(`Imported ${importedStories.length} Scout article${importedStories.length === 1 ? "" : "s"} into draft headlines.`);
     } catch (error) {
         if (silent) {
             console.warn(`Scout import error: ${error.message}`);
+            setStatus(`Scout import error: ${error.message}`);
         } else {
             setStatus(`Scout import error: ${error.message}`);
         }
@@ -496,7 +604,7 @@ function renderStories() {
 
         const titleWrap = document.createElement("div");
         const title = document.createElement("div");
-        title.className = "story-title " + story.color;
+        title.className = "story-title " + (story.color || "");
         title.textContent = story.headline;
 
         const subtitle = document.createElement("div");
@@ -507,18 +615,22 @@ function renderStories() {
         titleWrap.appendChild(subtitle);
 
         const up = document.createElement("button");
+        up.type = "button";
         up.textContent = String.fromCharCode(8593);
         up.onclick = () => moveStory(index, -1);
 
         const down = document.createElement("button");
+        down.type = "button";
         down.textContent = String.fromCharCode(8595);
         down.onclick = () => moveStory(index, 1);
 
         const edit = document.createElement("button");
+        edit.type = "button";
         edit.textContent = "Edit";
         edit.onclick = () => editStory(index);
 
         const del = document.createElement("button");
+        del.type = "button";
         del.textContent = "Delete";
         del.onclick = () => deleteStory(index);
 
@@ -531,11 +643,12 @@ function renderStories() {
         list.appendChild(item);
     });
 }
+
 function renderVideos() {
     const list = document.getElementById("videoList");
     list.innerHTML = "";
 
-    [...videos].forEach((video, index) => {
+    videos.forEach((video, index) => {
         const item = document.createElement("div");
         item.className = "story-item";
 
@@ -543,21 +656,26 @@ function renderVideos() {
         const title = document.createElement("div");
         title.className = "story-title";
         title.textContent = video.title;
+
         const subtitle = document.createElement("div");
         subtitle.className = "story-subtitle";
         subtitle.textContent = video.url;
+
         titleWrap.appendChild(title);
         titleWrap.appendChild(subtitle);
 
         const up = document.createElement("button");
+        up.type = "button";
         up.textContent = String.fromCharCode(8593);
         up.onclick = () => moveVideo(index, -1);
 
         const down = document.createElement("button");
+        down.type = "button";
         down.textContent = String.fromCharCode(8595);
         down.onclick = () => moveVideo(index, 1);
 
         const del = document.createElement("button");
+        del.type = "button";
         del.textContent = "Delete";
         del.onclick = () => deleteVideo(index);
 
@@ -592,10 +710,8 @@ function cancelHeadlineEdit() {
 
     document.getElementById("headlineSubmitButton").textContent = "Add Headline";
     document.getElementById("cancelHeadlineEditButton").style.display = "none";
-
-    setStatus("Headline edit canceled.");
 }
-    
+
 function moveStory(index, direction) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= stories.length) return;
@@ -625,12 +741,12 @@ function deleteVideo(index) {
 }
 
 function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
+    return String(str || "").replace(/[&<>'"]/g, tag => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        "\"": "&quot;"
     }[tag]));
 }
 
@@ -643,16 +759,11 @@ function getYouTubeId(url) {
     ];
 
     for (const pattern of patterns) {
-        const match = url.match(pattern);
+        const match = String(url || "").match(pattern);
         if (match && match[1]) return match[1];
     }
 
     return null;
-}
-
-function getEmbedUrl(url) {
-    const id = getYouTubeId(url);
-    return id ? `https://www.youtube.com/embed/${id}` : url;
 }
 
 function generateHeadlineHTML() {
@@ -684,7 +795,7 @@ ${mobileVideos.map(video => {
 }).join("\n")}
 </div>`;
 }
-    
+
 function generateVideoHTML() {
     return videos.map(video => {
         const id = getYouTubeId(video.url);
@@ -736,23 +847,15 @@ async function publishLive() {
 
 renderStories();
 renderVideos();
-importScoutQueue({ silent: true });
+refreshScoutPendingCount().catch(() => {});
 
 window.addEventListener("storage", event => {
     if (event.key === "disclosurePressStories" || event.key === "disclosurePressVideos") {
         syncDraftFromStorage();
-        setStatus("Scout updates loaded.");
-
-        if (event.key === "disclosurePressStories") {
-            const updatedStories = JSON.parse(event.newValue || "[]");
-            clearScoutQueueUrls(updatedStories.map(story => story.url))
-                .then(() => setStatus("Scout updates loaded and queue cleared."))
-                .catch(error => setStatus(`Scout queue clear error: ${error.message}`));
-        }
+        setStatus("Draft updates loaded.");
     }
 });
 </script>
 
 </body>
 </html>
-
