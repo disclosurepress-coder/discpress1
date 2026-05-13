@@ -60,6 +60,11 @@ button:hover {
     background: #eee;
 }
 
+button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
 .form-row {
     margin-bottom: 10px;
 }
@@ -126,46 +131,11 @@ button:hover {
     margin-bottom: 20px;
 }
 
-.scout-box {
+.cloud-box {
     border: 1px solid #ccc;
     background: #fafafa;
     padding: 14px;
     margin: 20px 0;
-}
-
-.scout-count {
-    font-size: 14px;
-    color: #555;
-    margin-top: 8px;
-}
-
-.scout-results {
-    margin-top: 15px;
-    border-top: 1px solid #ccc;
-}
-
-.scout-result {
-    padding: 12px 0;
-    border-bottom: 1px solid #ddd;
-}
-
-.scout-result-title {
-    font-size: 17px;
-    font-weight: bold;
-}
-
-.scout-result-meta {
-    font-size: 13px;
-    color: #555;
-    margin-top: 4px;
-    word-break: break-all;
-}
-
-.scout-result-description {
-    font-size: 14px;
-    color: #333;
-    margin-top: 6px;
-    line-height: 1.4;
 }
 
 .auth-screen {
@@ -220,18 +190,16 @@ body:not(.authenticated) .admin-wrap {
     <h1>DISCLOSURE PRESS ADMIN</h1>
 
     <div class="warning">
-        <strong>How publishing works:</strong> this dashboard sends approved headlines and videos to a secure Cloudflare Worker. The Worker updates <code>index.html</code> in GitHub, and Cloudflare should automatically redeploy the live site after you click <strong>Publish Live</strong>.
+        <strong>How publishing works:</strong> this dashboard loads and saves the cloud draft through the secure Cloudflare Worker. Accepted Scout headlines may already appear below. Nothing goes live until you click <strong>Publish Live</strong>.
     </div>
 
-    <div class="scout-box">
-        <h2>Scout</h2>
+    <div class="cloud-box">
+        <h2>Cloud Draft</h2>
         <div class="actions">
-            <button type="button" onclick="runScout()">Run Scout</button>
-            <button type="button" onclick="refreshScoutPendingCount()">Refresh Scout Queue Count</button>
+            <button type="button" onclick="loadCloudDraft()">Reload Cloud Draft</button>
+            <button type="button" onclick="saveCloudDraft()">Save Cloud Draft</button>
         </div>
-        <div class="scout-count" id="scoutCount">Scout queue: unknown.</div>
-        <p class="note">Run Scout shows fresh and queued candidate headlines below. Use Add Headline to move one to the top of the headline stack, or Reject to hide it permanently.</p>
-        <div class="scout-results" id="scoutResults"></div>
+        <p class="note" id="draftMeta">Cloud draft not loaded yet.</p>
     </div>
 
     <h2>Add Headline</h2>
@@ -289,10 +257,9 @@ body:not(.authenticated) .admin-wrap {
 
     <div class="actions">
         <button type="button" onclick="publishLive()">Publish Live</button>
-        <button type="button" onclick="restoreLastBackup()">Restore Last Backup</button>
     </div>
 
-    <p class="note">Nothing goes live until you click <strong>Publish Live</strong>. Use the up and down arrows to reorder stories or videos.</p>
+    <p class="note">Use the up and down arrows to reorder stories or videos. Changes are saved to the cloud draft.</p>
 
     <div class="status" id="status">Status: Ready.</div>
 </div>
@@ -316,6 +283,7 @@ body:not(.authenticated) .admin-wrap {
     function unlock() {
         sessionStorage.setItem(AUTH_KEY, "true");
         document.body.classList.add("authenticated");
+        loadCloudDraft();
     }
 
     if (sessionStorage.getItem(AUTH_KEY) === "true") {
@@ -349,95 +317,23 @@ body:not(.authenticated) .admin-wrap {
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
-let stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
-let videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
-let scoutCandidates = [];
+let stories = [];
+let videos = [];
+let draftUpdatedAt = "";
 
-const BACKUP_STORIES_KEY = "disclosurePressBackupStories";
-const BACKUP_VIDEOS_KEY = "disclosurePressBackupVideos";
-const BACKUP_DATE_KEY = "disclosurePressBackupDate";
 const SCOUT_WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
-
-function saveBackup() {
-    localStorage.setItem(BACKUP_STORIES_KEY, JSON.stringify(stories));
-    localStorage.setItem(BACKUP_VIDEOS_KEY, JSON.stringify(videos));
-    localStorage.setItem(BACKUP_DATE_KEY, new Date().toISOString());
-}
-
-function restoreLastBackup() {
-    const backupStories = localStorage.getItem(BACKUP_STORIES_KEY);
-    const backupVideos = localStorage.getItem(BACKUP_VIDEOS_KEY);
-    const backupDate = localStorage.getItem(BACKUP_DATE_KEY);
-
-    if (!backupStories && !backupVideos) {
-        alert("No backup found.");
-        return;
-    }
-
-    const label = backupDate ? new Date(backupDate).toLocaleString() : "unknown time";
-
-    if (!confirm(`Restore backup from ${label}? This will replace the current draft headlines and videos.`)) {
-        return;
-    }
-
-    stories = JSON.parse(backupStories || "[]");
-    videos = JSON.parse(backupVideos || "[]");
-
-    saveDraft();
-    renderStories();
-    renderVideos();
-    setStatus(`Restored backup from ${label}.`);
-}
-
-function saveDraft() {
-    localStorage.setItem("disclosurePressStories", JSON.stringify(stories));
-    localStorage.setItem("disclosurePressVideos", JSON.stringify(videos));
-}
 
 function setStatus(message) {
     document.getElementById("status").textContent = "Status: " + message;
 }
 
-function setScoutCount(message) {
-    const scoutCount = document.getElementById("scoutCount");
-    if (scoutCount) {
-        scoutCount.textContent = message;
-    }
+function setDraftMeta() {
+    const label = draftUpdatedAt ? new Date(draftUpdatedAt).toLocaleString() : "not saved yet";
+    document.getElementById("draftMeta").textContent = `Cloud draft: ${stories.length} headline${stories.length === 1 ? "" : "s"}, ${videos.length} video${videos.length === 1 ? "" : "s"}. Last saved: ${label}.`;
 }
 
 function scoutEndpoint(path) {
     return new URL(path, SCOUT_WORKER_URL).toString();
-}
-
-function syncDraftFromStorage() {
-    stories = JSON.parse(localStorage.getItem("disclosurePressStories")) || [];
-    videos = JSON.parse(localStorage.getItem("disclosurePressVideos")) || [];
-    renderStories();
-    renderVideos();
-}
-
-function addStory() {
-    const headline = document.getElementById("headline").value.trim();
-    const url = document.getElementById("url").value.trim();
-    const color = document.getElementById("color").value;
-    const editIndex = document.getElementById("headlineEditIndex").value;
-
-    if (!headline || !url) {
-        alert("Please enter both a headline and a URL.");
-        return;
-    }
-
-    if (editIndex !== "") {
-        stories[Number(editIndex)] = { headline, url, color };
-        setStatus("Headline updated.");
-    } else {
-        stories.unshift({ headline, url, color });
-        setStatus("Headline added.");
-    }
-
-    saveDraft();
-    renderStories();
-    cancelHeadlineEdit();
 }
 
 async function fetchJson(url, options = {}) {
@@ -451,222 +347,95 @@ async function fetchJson(url, options = {}) {
     return data;
 }
 
-async function clearScoutQueueUrls(urls) {
-    const uniqueUrls = [...new Set(urls.filter(Boolean))];
-
-    if (!uniqueUrls.length) {
-        return;
-    }
-
-    await fetchJson(scoutEndpoint("/pending/clear"), {
-        method: "POST",
-        headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            urls: uniqueUrls
-        })
-    });
+function cleanStory(story) {
+    return {
+        headline: story.headline || "Untitled article",
+        url: story.url || "",
+        color: story.color || ""
+    };
 }
 
-async function markScoutArticleHandled(article) {
-    if (article.url) {
-        await clearScoutQueueUrls([article.url]);
-    }
-
-    await fetchJson(scoutEndpoint("/reject"), {
-        method: "POST",
-        headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(article)
-    });
+function cleanVideo(video) {
+    return {
+        title: video.title || "Untitled video",
+        url: video.url || ""
+    };
 }
 
-async function refreshScoutPendingCount() {
+async function loadCloudDraft() {
+    setStatus("Loading cloud draft...");
+
     try {
-        const data = await fetchJson(scoutEndpoint("/pending"), {
+        const data = await fetchJson(scoutEndpoint("/draft"), {
             method: "GET",
             headers: {
                 "Accept": "application/json"
             }
         });
 
-        setScoutCount(`Scout queue: ${data.count || 0} article${data.count === 1 ? "" : "s"}.`);
-        return data;
+        const draft = data.draft || {};
+        stories = Array.isArray(draft.stories) ? draft.stories.map(cleanStory).filter(story => story.url) : [];
+        videos = Array.isArray(draft.videos) ? draft.videos.map(cleanVideo).filter(video => video.url) : [];
+        draftUpdatedAt = draft.updatedAt || "";
+
+        renderStories();
+        renderVideos();
+        setDraftMeta();
+        setStatus("Cloud draft loaded.");
     } catch (error) {
-        setScoutCount(`Scout queue error: ${error.message}`);
+        setStatus(`Cloud draft load error: ${error.message}`);
+    }
+}
+
+async function saveCloudDraft(statusMessage = "Cloud draft saved.") {
+    try {
+        const data = await fetchJson(scoutEndpoint("/draft"), {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                stories,
+                videos
+            })
+        });
+
+        const draft = data.draft || {};
+        draftUpdatedAt = draft.updatedAt || new Date().toISOString();
+        setDraftMeta();
+        setStatus(statusMessage);
+    } catch (error) {
+        setStatus(`Cloud draft save error: ${error.message}`);
         throw error;
     }
 }
 
-function mergeScoutCandidates(freshArticles, queuedArticles) {
-    const existingDraftUrls = new Set(stories.map(story => story.url));
-    const seenUrls = new Set();
-    const merged = [];
+async function addStory() {
+    const headline = document.getElementById("headline").value.trim();
+    const url = document.getElementById("url").value.trim();
+    const color = document.getElementById("color").value;
+    const editIndex = document.getElementById("headlineEditIndex").value;
 
-    [...queuedArticles, ...freshArticles].forEach(article => {
-        if (!article || !article.url || seenUrls.has(article.url) || existingDraftUrls.has(article.url)) {
-            return;
-        }
-
-        seenUrls.add(article.url);
-        merged.push(article);
-    });
-
-    return merged;
-}
-
-async function runScout() {
-    setStatus("Running Scout...");
-
-    try {
-        const scoutData = await fetchJson(scoutEndpoint("/?refresh=1"), {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
-        const pendingData = await fetchJson(scoutEndpoint("/pending"), {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
-        const freshArticles = Array.isArray(scoutData.articles) ? scoutData.articles : [];
-        const queuedArticles = Array.isArray(pendingData.articles) ? pendingData.articles : [];
-
-        scoutCandidates = mergeScoutCandidates(freshArticles, queuedArticles);
-        renderScoutResults();
-
-        if (!scoutCandidates.length) {
-            setStatus("Scout found no new articles.");
-        } else {
-            setStatus(`Scout found ${scoutCandidates.length} article${scoutCandidates.length === 1 ? "" : "s"} for review.`);
-        }
-
-        setScoutCount(`Scout queue: ${queuedArticles.length} article${queuedArticles.length === 1 ? "" : "s"}.`);
-    } catch (error) {
-        setStatus(`Scout error: ${error.message}`);
-    }
-}
-
-function renderScoutResults() {
-    const list = document.getElementById("scoutResults");
-    list.innerHTML = "";
-
-    if (!scoutCandidates.length) {
-        list.innerHTML = `<p class="note">No Scout results loaded.</p>`;
+    if (!headline || !url) {
+        alert("Please enter both a headline and a URL.");
         return;
     }
 
-    scoutCandidates.forEach((article, index) => {
-        const item = document.createElement("div");
-        item.className = "scout-result";
+    if (editIndex !== "") {
+        stories[Number(editIndex)] = { headline, url, color };
+        renderStories();
+        await saveCloudDraft("Headline updated and saved to cloud.");
+    } else {
+        stories.unshift({ headline, url, color });
+        renderStories();
+        await saveCloudDraft("Headline added and saved to cloud.");
+    }
 
-        const title = document.createElement("div");
-        title.className = "scout-result-title";
-        title.textContent = article.title || "Untitled article";
-
-        const meta = document.createElement("div");
-        meta.className = "scout-result-meta";
-        meta.textContent = `${article.source || "Unknown source"} | ${article.publishedAt || "No date"} | ${article.url || ""}`;
-
-        const description = document.createElement("div");
-        description.className = "scout-result-description";
-        description.textContent = article.description || "";
-
-        const actions = document.createElement("div");
-        actions.className = "actions";
-
-        const add = document.createElement("button");
-        add.type = "button";
-        add.textContent = "Add Headline";
-        add.onclick = () => addScoutHeadline(index);
-
-        const reject = document.createElement("button");
-        reject.type = "button";
-        reject.textContent = "Reject";
-        reject.onclick = () => rejectScoutHeadline(index);
-
-        actions.appendChild(add);
-        actions.appendChild(reject);
-
-        item.appendChild(title);
-        item.appendChild(meta);
-        item.appendChild(description);
-        item.appendChild(actions);
-
-        list.appendChild(item);
-    });
+    cancelHeadlineEdit();
 }
 
-async function addScoutHeadline(index) {
-    const article = scoutCandidates[index];
-
-    if (!article) {
-        return;
-    }
-
-    const headline = article.title || "Untitled article";
-    const url = article.url || "";
-
-    if (!url) {
-        setStatus("Scout article is missing a URL.");
-        return;
-    }
-
-    const exists = stories.some(story => story.url === url);
-
-    try {
-        if (!exists) {
-            saveBackup();
-            stories.unshift({
-                headline,
-                url,
-                color: ""
-            });
-            saveDraft();
-            renderStories();
-        }
-
-        await markScoutArticleHandled(article);
-
-        scoutCandidates.splice(index, 1);
-        renderScoutResults();
-        await refreshScoutPendingCount();
-
-        setStatus(exists ? "Scout headline was already in the stack and has been marked handled." : "Scout headline added to top of stack.");
-    } catch (error) {
-        setStatus(`Scout add error: ${error.message}`);
-    }
-}
-
-async function rejectScoutHeadline(index) {
-    const article = scoutCandidates[index];
-
-    if (!article) {
-        return;
-    }
-
-    try {
-        await markScoutArticleHandled(article);
-
-        scoutCandidates.splice(index, 1);
-        renderScoutResults();
-        await refreshScoutPendingCount();
-
-        setStatus("Scout headline rejected.");
-    } catch (error) {
-        setStatus(`Scout reject error: ${error.message}`);
-    }
-}
-
-function addVideo() {
+async function addVideo() {
     const title = document.getElementById("videoTitle").value.trim();
     const url = document.getElementById("videoUrl").value.trim();
 
@@ -676,11 +445,12 @@ function addVideo() {
     }
 
     videos.unshift({ title, url });
-    saveDraft();
     renderVideos();
 
     document.getElementById("videoTitle").value = "";
     document.getElementById("videoUrl").value = "";
+
+    await saveCloudDraft("Video added and saved to cloud.");
 }
 
 function renderStories() {
@@ -731,6 +501,8 @@ function renderStories() {
 
         list.appendChild(item);
     });
+
+    setDraftMeta();
 }
 
 function renderVideos() {
@@ -774,6 +546,8 @@ function renderVideos() {
         item.appendChild(del);
         list.appendChild(item);
     });
+
+    setDraftMeta();
 }
 
 function editStory(index) {
@@ -801,109 +575,39 @@ function cancelHeadlineEdit() {
     document.getElementById("cancelHeadlineEditButton").style.display = "none";
 }
 
-function moveStory(index, direction) {
+async function moveStory(index, direction) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= stories.length) return;
     [stories[index], stories[newIndex]] = [stories[newIndex], stories[index]];
-    saveDraft();
     renderStories();
+    await saveCloudDraft("Headline order saved to cloud.");
 }
 
-function moveVideo(index, direction) {
+async function moveVideo(index, direction) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= videos.length) return;
     [videos[index], videos[newIndex]] = [videos[newIndex], videos[index]];
-    saveDraft();
     renderVideos();
+    await saveCloudDraft("Video order saved to cloud.");
 }
 
-function deleteStory(index) {
+async function deleteStory(index) {
     stories.splice(index, 1);
-    saveDraft();
     renderStories();
+    await saveCloudDraft("Headline deleted and cloud draft saved.");
 }
 
-function deleteVideo(index) {
+async function deleteVideo(index) {
     videos.splice(index, 1);
-    saveDraft();
     renderVideos();
-}
-
-function escapeHTML(str) {
-    return String(str || "").replace(/[&<>'"]/g, tag => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        "\"": "&quot;"
-    }[tag]));
-}
-
-function getYouTubeId(url) {
-    const patterns = [
-        /youtube\.com\/watch\?v=([^&]+)/,
-        /youtu\.be\/([^?&]+)/,
-        /youtube\.com\/embed\/([^?&]+)/,
-        /youtube\.com\/shorts\/([^?&]+)/
-    ];
-
-    for (const pattern of patterns) {
-        const match = String(url || "").match(pattern);
-        if (match && match[1]) return match[1];
-    }
-
-    return null;
-}
-
-function generateHeadlineHTML() {
-    return stories.map(story => {
-        const colorClass = story.color ? " " + story.color : "";
-        return `<div class="headline${colorClass}"><a href="${escapeHTML(story.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(story.headline)}</a></div>`;
-    }).join("\n");
-}
-
-function generateMobileVideoHTML() {
-    const mobileVideos = videos.slice(0, 20);
-
-    if (mobileVideos.length === 0) {
-        return `<div class="mobile-video-dock"></div>`;
-    }
-
-    return `<div class="mobile-video-dock">
-${mobileVideos.map(video => {
-    const id = getYouTubeId(video.url);
-    const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
-    const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
-
-    return `<div class="video">
-<a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
-<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb" alt="${escapeHTML(video.title)}" loading="lazy">
-</a>
-<div class="video-title">${escapeHTML(video.title)}</div>
-</div>`;
-}).join("\n")}
-</div>`;
-}
-
-function generateVideoHTML() {
-    return videos.map(video => {
-        const id = getYouTubeId(video.url);
-        const watchUrl = id ? `https://www.youtube.com/watch?v=${id}` : video.url;
-        const thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
-
-        return `<div class="video">
-<a href="${escapeHTML(watchUrl)}" target="_blank" rel="noopener noreferrer">
-<img src="${escapeHTML(thumbnailUrl)}" class="video-thumb">
-</a>
-<div class="video-title">${escapeHTML(video.title)}</div>
-</div>`;
-    }).join("\n");
+    await saveCloudDraft("Video deleted and cloud draft saved.");
 }
 
 async function publishLive() {
-    saveDraft();
+    await saveCloudDraft("Cloud draft saved. Publishing...");
 
     if (!confirm(`Publish ${stories.length} headline${stories.length === 1 ? "" : "s"} and ${videos.length} video${videos.length === 1 ? "" : "s"} to the live site?`)) {
+        setStatus("Publish canceled.");
         return;
     }
 
@@ -936,15 +640,7 @@ async function publishLive() {
 
 renderStories();
 renderVideos();
-renderScoutResults();
-refreshScoutPendingCount().catch(() => {});
-
-window.addEventListener("storage", event => {
-    if (event.key === "disclosurePressStories" || event.key === "disclosurePressVideos") {
-        syncDraftFromStorage();
-        setStatus("Draft updates loaded.");
-    }
-});
+setDraftMeta();
 </script>
 
 </body>
