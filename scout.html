@@ -60,13 +60,6 @@ h1 {
     gap: 10px;
 }
 
-.search-input {
-    width: min(260px, 38vw);
-    border: 1px solid var(--line);
-    padding: 10px 12px;
-    font-size: 15px;
-}
-
 button {
     border: 1px solid var(--accent-dark);
     background: var(--accent);
@@ -154,6 +147,7 @@ button:disabled {
 .article-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .empty {
@@ -169,7 +163,6 @@ button:disabled {
         flex-direction: column;
     }
 
-    .search-input,
     button {
         width: 100%;
     }
@@ -193,8 +186,6 @@ button:disabled {
 
 <script>
 const WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
-const ADMIN_STORIES_KEY = "disclosurePressStories";
-const SCOUT_SEEN_URLS_KEY = "disclosurePressScoutSeenUrls";
 
 let currentResults = [];
 
@@ -226,40 +217,28 @@ function normalizeArticle(article) {
         source: article.source || "Unknown source",
         url: article.url || "",
         publishedAt: article.publishedAt || "",
-        description: article.description || ""
+        description: article.description || "",
+        scoutSource: article.scoutSource || ""
     };
-}
-
-function getSeenUrls() {
-    return JSON.parse(localStorage.getItem(SCOUT_SEEN_URLS_KEY)) || [];
-}
-
-function saveSeenUrls(urls) {
-    localStorage.setItem(SCOUT_SEEN_URLS_KEY, JSON.stringify([...new Set(urls)]));
-}
-
-function markArticleSeen(article) {
-    if (!article.url) {
-        return;
-    }
-
-    saveSeenUrls([...getSeenUrls(), article.url]);
-}
-
-function getAdminStories() {
-    return JSON.parse(localStorage.getItem(ADMIN_STORIES_KEY)) || [];
-}
-
-function saveAdminStories(stories) {
-    localStorage.setItem(ADMIN_STORIES_KEY, JSON.stringify(stories));
 }
 
 function workerEndpoint(path) {
     return new URL(path, WORKER_URL).toString();
 }
 
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || data.message || `Worker returned ${response.status}`);
+    }
+
+    return data;
+}
+
 async function postArticleAction(path, article) {
-    const response = await fetch(workerEndpoint(path), {
+    return fetchJson(workerEndpoint(path), {
         method: "POST",
         headers: {
             "Accept": "application/json",
@@ -267,37 +246,25 @@ async function postArticleAction(path, article) {
         },
         body: JSON.stringify(article)
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || `Worker returned ${response.status}`);
-    }
-
-    return data;
 }
 
 async function queueArticleForAdmin(index) {
     const article = currentResults[index];
-    const stories = getAdminStories();
-    const alreadyQueued = stories.some(story => story.url === article.url);
+
+    if (!article) {
+        return;
+    }
 
     try {
-        await postArticleAction("/queue", article);
+        const data = await postArticleAction("/scout/accept", article);
 
-        if (!alreadyQueued) {
-            stories.unshift({
-                headline: article.title,
-                url: article.url,
-                color: ""
-            });
-            saveAdminStories(stories);
+        if (!data.accepted) {
+            throw new Error(data.error || "Worker did not accept the article.");
         }
 
-        markArticleSeen(article);
         currentResults.splice(index, 1);
         renderResults(currentResults);
-        setStatus(alreadyQueued ? "Article was already waiting in Admin." : "Article queued in Admin, waiting to be published.");
+        setStatus("Article queued in cloud draft, waiting to be published from Admin.");
     } catch (error) {
         setStatus(`Queue error: ${error.message}`, true);
     }
@@ -390,15 +357,36 @@ function renderResults(articles) {
 async function rejectArticle(index) {
     const article = currentResults[index];
 
+    if (!article) {
+        return;
+    }
+
     try {
-        await postArticleAction("/reject", article);
-        markArticleSeen(article);
+        const data = await postArticleAction("/reject", article);
+
+        if (!data.rejected) {
+            throw new Error(data.error || "Worker did not reject the article.");
+        }
+
         currentResults.splice(index, 1);
         renderResults(currentResults);
         setStatus("Article rejected and hidden from future Scout runs.");
     } catch (error) {
         setStatus(`Reject error: ${error.message}`, true);
     }
+}
+
+function dedupeArticles(articles) {
+    const seenUrls = new Set();
+
+    return articles.filter(article => {
+        if (!article || !article.url || seenUrls.has(article.url)) {
+            return false;
+        }
+
+        seenUrls.add(article.url);
+        return true;
+    });
 }
 
 async function runScout() {
@@ -411,6 +399,7 @@ async function runScout() {
 
     const requestUrl = new URL(workerUrl);
     requestUrl.searchParams.set("q", "all");
+    requestUrl.searchParams.set("refresh", "1");
 
     runScoutButton.disabled = true;
     setStatus("Scanning sources...");
@@ -440,14 +429,10 @@ async function runScout() {
             throw new Error("Worker JSON must include an articles array.");
         }
 
-        const seenUrls = new Set(getSeenUrls());
-
-        currentResults = data.articles
-            .map(normalizeArticle)
-            .filter(article => article.url && !seenUrls.has(article.url));
+        currentResults = dedupeArticles(data.articles.map(normalizeArticle));
 
         renderResults(currentResults);
-        setStatus(`Scout complete. ${currentResults.length} new articles found.`);
+        setStatus(`Scout complete. ${currentResults.length} new article${currentResults.length === 1 ? "" : "s"} found.`);
     } catch (error) {
         currentResults = [];
         clearResults("No articles loaded.");
