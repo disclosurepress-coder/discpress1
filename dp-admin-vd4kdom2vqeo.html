@@ -230,7 +230,7 @@ body:not(.authenticated) .admin-wrap {
             <button type="button" onclick="refreshScoutPendingCount()">Refresh Scout Queue Count</button>
         </div>
         <div class="scout-count" id="scoutCount">Scout queue: unknown.</div>
-        <p class="note">Run Scout shows fresh candidate headlines below. Use Add Headline to move one to the top of the headline stack, or Reject to hide it permanently.</p>
+        <p class="note">Run Scout shows fresh and queued candidate headlines below. Use Add Headline to move one to the top of the headline stack, or Reject to hide it permanently.</p>
         <div class="scout-results" id="scoutResults"></div>
     </div>
 
@@ -502,6 +502,23 @@ async function refreshScoutPendingCount() {
     }
 }
 
+function mergeScoutCandidates(freshArticles, queuedArticles) {
+    const existingDraftUrls = new Set(stories.map(story => story.url));
+    const seenUrls = new Set();
+    const merged = [];
+
+    [...queuedArticles, ...freshArticles].forEach(article => {
+        if (!article || !article.url || seenUrls.has(article.url) || existingDraftUrls.has(article.url)) {
+            return;
+        }
+
+        seenUrls.add(article.url);
+        merged.push(article);
+    });
+
+    return merged;
+}
+
 async function runScout() {
     setStatus("Running Scout...");
 
@@ -513,7 +530,17 @@ async function runScout() {
             }
         });
 
-        scoutCandidates = Array.isArray(scoutData.articles) ? scoutData.articles : [];
+        const pendingData = await fetchJson(scoutEndpoint("/pending"), {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const freshArticles = Array.isArray(scoutData.articles) ? scoutData.articles : [];
+        const queuedArticles = Array.isArray(pendingData.articles) ? pendingData.articles : [];
+
+        scoutCandidates = mergeScoutCandidates(freshArticles, queuedArticles);
         renderScoutResults();
 
         if (!scoutCandidates.length) {
@@ -522,7 +549,7 @@ async function runScout() {
             setStatus(`Scout found ${scoutCandidates.length} article${scoutCandidates.length === 1 ? "" : "s"} for review.`);
         }
 
-        await refreshScoutPendingCount();
+        setScoutCount(`Scout queue: ${queuedArticles.length} article${queuedArticles.length === 1 ? "" : "s"}.`);
     } catch (error) {
         setStatus(`Scout error: ${error.message}`);
     }
