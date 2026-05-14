@@ -65,6 +65,28 @@ button:disabled {
     opacity: 0.7;
 }
 
+.refresh-panel {
+    border: 2px solid #000;
+    background: #f7f7f7;
+    padding: 14px;
+    margin: 18px 0 20px;
+    text-align: center;
+}
+
+.refresh-button {
+    width: min(460px, 100%);
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 14px 18px;
+    background: #000;
+    color: #fff;
+}
+
+.refresh-button:hover {
+    background: #333;
+}
+
 .form-row {
     margin-bottom: 10px;
 }
@@ -131,13 +153,6 @@ button:disabled {
     margin-bottom: 20px;
 }
 
-.cloud-box {
-    border: 1px solid #ccc;
-    background: #fafafa;
-    padding: 14px;
-    margin: 20px 0;
-}
-
 .auth-screen {
     min-height: calc(100vh - 40px);
     display: flex;
@@ -161,6 +176,10 @@ button:disabled {
     min-height: 20px;
     color: #8a1f11;
     font-size: 14px;
+}
+
+.hidden-meta {
+    display: none;
 }
 
 body.authenticated .auth-screen {
@@ -189,18 +208,16 @@ body:not(.authenticated) .admin-wrap {
 <div class="admin-wrap">
     <h1>DISCLOSURE PRESS ADMIN</h1>
 
-    <div class="warning">
-        <strong>How publishing works:</strong> this dashboard loads and saves the cloud draft through the secure Cloudflare Worker. Accepted Scout headlines may already appear below. Nothing goes live until you click <strong>Publish Live</strong>.
+    <div class="refresh-panel">
+        <button type="button" class="refresh-button" onclick="refreshAdminPage()">REFRESH PAGE</button>
+        <p class="note">Refresh before editing or publishing to load the latest saved headline stack.</p>
     </div>
 
-    <div class="cloud-box">
-        <h2>Cloud Draft</h2>
-        <div class="actions">
-            <button type="button" onclick="loadCloudDraft()">Reload Cloud Draft</button>
-            <button type="button" onclick="saveCloudDraft()">Save Cloud Draft</button>
-        </div>
-        <p class="note" id="draftMeta">Cloud draft not loaded yet.</p>
+    <div class="warning">
+        <strong>How publishing works:</strong> this dashboard loads and saves the headline/video draft through the secure Cloudflare Worker. Accepted Scout headlines may already appear below. Nothing goes live until you click <strong>Publish Live</strong>.
     </div>
+
+    <p class="hidden-meta" id="draftMeta">Draft status hidden.</p>
 
     <h2>Add Headline</h2>
 
@@ -259,7 +276,7 @@ body:not(.authenticated) .admin-wrap {
         <button type="button" onclick="publishLive()">Publish Live</button>
     </div>
 
-    <p class="note">Use the up and down arrows to reorder stories or videos. Changes are saved to the cloud draft.</p>
+    <p class="note">Use the up and down arrows to reorder stories or videos. Changes are saved to the draft automatically.</p>
 
     <div class="status" id="status">Status: Ready.</div>
 </div>
@@ -323,13 +340,17 @@ let draftUpdatedAt = "";
 
 const SCOUT_WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.dev/";
 
+function refreshAdminPage() {
+    window.location.reload();
+}
+
 function setStatus(message) {
     document.getElementById("status").textContent = "Status: " + message;
 }
 
 function setDraftMeta() {
     const label = draftUpdatedAt ? new Date(draftUpdatedAt).toLocaleString() : "not saved yet";
-    document.getElementById("draftMeta").textContent = `Cloud draft: ${stories.length} headline${stories.length === 1 ? "" : "s"}, ${videos.length} video${videos.length === 1 ? "" : "s"}. Last saved: ${label}.`;
+    document.getElementById("draftMeta").textContent = `Draft: ${stories.length} headline${stories.length === 1 ? "" : "s"}, ${videos.length} video${videos.length === 1 ? "" : "s"}. Last saved: ${label}.`;
 }
 
 function scoutEndpoint(path) {
@@ -363,7 +384,7 @@ function cleanVideo(video) {
 }
 
 async function loadCloudDraft() {
-    setStatus("Loading cloud draft...");
+    setStatus("Loading latest draft...");
 
     try {
         const data = await fetchJson(scoutEndpoint("/draft"), {
@@ -381,13 +402,13 @@ async function loadCloudDraft() {
         renderStories();
         renderVideos();
         setDraftMeta();
-        setStatus("Cloud draft loaded.");
+        setStatus("Latest draft loaded.");
     } catch (error) {
-        setStatus(`Cloud draft load error: ${error.message}`);
+        setStatus(`Draft load error: ${error.message}`);
     }
 }
 
-async function saveCloudDraft(statusMessage = "Cloud draft saved.") {
+async function saveCloudDraft(statusMessage = "Draft saved.") {
     try {
         const data = await fetchJson(scoutEndpoint("/draft"), {
             method: "POST",
@@ -406,7 +427,7 @@ async function saveCloudDraft(statusMessage = "Cloud draft saved.") {
         setDraftMeta();
         setStatus(statusMessage);
     } catch (error) {
-        setStatus(`Cloud draft save error: ${error.message}`);
+        setStatus(`Draft save error: ${error.message}`);
         throw error;
     }
 }
@@ -425,11 +446,11 @@ async function addStory() {
     if (editIndex !== "") {
         stories[Number(editIndex)] = { headline, url, color };
         renderStories();
-        await saveCloudDraft("Headline updated and saved to cloud.");
+        await saveCloudDraft("Headline updated and saved.");
     } else {
         stories.unshift({ headline, url, color });
         renderStories();
-        await saveCloudDraft("Headline added and saved to cloud.");
+        await saveCloudDraft("Headline added and saved.");
     }
 
     cancelHeadlineEdit();
@@ -450,7 +471,7 @@ async function addVideo() {
     document.getElementById("videoTitle").value = "";
     document.getElementById("videoUrl").value = "";
 
-    await saveCloudDraft("Video added and saved to cloud.");
+    await saveCloudDraft("Video added and saved.");
 }
 
 function renderStories() {
@@ -580,7 +601,7 @@ async function moveStory(index, direction) {
     if (newIndex < 0 || newIndex >= stories.length) return;
     [stories[index], stories[newIndex]] = [stories[newIndex], stories[index]];
     renderStories();
-    await saveCloudDraft("Headline order saved to cloud.");
+    await saveCloudDraft("Headline order saved.");
 }
 
 async function moveVideo(index, direction) {
@@ -588,23 +609,23 @@ async function moveVideo(index, direction) {
     if (newIndex < 0 || newIndex >= videos.length) return;
     [videos[index], videos[newIndex]] = [videos[newIndex], videos[index]];
     renderVideos();
-    await saveCloudDraft("Video order saved to cloud.");
+    await saveCloudDraft("Video order saved.");
 }
 
 async function deleteStory(index) {
     stories.splice(index, 1);
     renderStories();
-    await saveCloudDraft("Headline deleted and cloud draft saved.");
+    await saveCloudDraft("Headline deleted and draft saved.");
 }
 
 async function deleteVideo(index) {
     videos.splice(index, 1);
     renderVideos();
-    await saveCloudDraft("Video deleted and cloud draft saved.");
+    await saveCloudDraft("Video deleted and draft saved.");
 }
 
 async function publishLive() {
-    await saveCloudDraft("Cloud draft saved. Publishing...");
+    await saveCloudDraft("Draft saved. Publishing...");
 
     if (!confirm(`Publish ${stories.length} headline${stories.length === 1 ? "" : "s"} and ${videos.length} video${videos.length === 1 ? "" : "s"} to the live site?`)) {
         setStatus("Publish canceled.");
