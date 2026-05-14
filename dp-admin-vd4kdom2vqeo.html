@@ -79,36 +79,27 @@ button:disabled {
     font-weight: 900;
     letter-spacing: 1px;
     padding: 14px 18px;
-    background: #000;
+    background: #005bbb;
     color: #fff;
 }
 
 .refresh-button:hover {
-    background: #333;
-}
-
-.section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-top: 22px;
-}
-
-.section-header h2 {
-    margin: 0;
-    text-align: left;
+    background: #003f88;
 }
 
 .publish-button {
     background: #b30000;
-    border-color: #7a0000;
     color: #fff;
-    font-weight: 900;
+    border-color: #7a0000;
+    font-weight: bold;
 }
 
 .publish-button:hover {
     background: #7a0000;
+}
+
+.actions .publish-button {
+    margin-left: auto;
 }
 
 .form-row {
@@ -164,7 +155,7 @@ button:disabled {
 
 .status {
     margin-top: 12px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     padding: 10px;
     border: 1px solid #ccc;
     background: #fafafa;
@@ -215,17 +206,9 @@ body:not(.authenticated) .admin-wrap {
     display: none;
 }
 
-@media (max-width: 640px) {
-    .section-header {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .section-header h2 {
-        text-align: center;
-    }
-
-    .publish-button {
+@media (max-width: 720px) {
+    .actions .publish-button {
+        margin-left: 0;
         width: 100%;
     }
 }
@@ -259,11 +242,7 @@ body:not(.authenticated) .admin-wrap {
 
     <p class="hidden-meta" id="draftMeta">Draft status hidden.</p>
 
-    <div class="section-header">
-        <h2>Add Headline</h2>
-        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
-    </div>
-
+    <h2>Add Headline</h2>
     <div class="status" id="headlineStatus">Status: Ready.</div>
 
     <div class="form-row">
@@ -291,17 +270,14 @@ body:not(.authenticated) .admin-wrap {
     <div class="actions">
         <button id="headlineSubmitButton" type="button" onclick="addStory()">Add Headline</button>
         <button id="cancelHeadlineEditButton" type="button" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
+        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
     </div>
 
     <div id="storyList" class="story-list"></div>
 
     <hr />
 
-    <div class="section-header">
-        <h2>Add Video</h2>
-        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
-    </div>
-
+    <h2>Add Video</h2>
     <div class="status" id="videoStatus">Status: Ready.</div>
 
     <div class="form-row">
@@ -316,6 +292,7 @@ body:not(.authenticated) .admin-wrap {
 
     <div class="actions">
         <button type="button" onclick="addVideo()">Add Video</button>
+        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
     </div>
 
     <div id="videoList" class="story-list"></div>
