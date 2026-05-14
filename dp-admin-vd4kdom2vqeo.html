@@ -87,6 +87,30 @@ button:disabled {
     background: #333;
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 22px;
+}
+
+.section-header h2 {
+    margin: 0;
+    text-align: left;
+}
+
+.publish-button {
+    background: #b30000;
+    border-color: #7a0000;
+    color: #fff;
+    font-weight: 900;
+}
+
+.publish-button:hover {
+    background: #7a0000;
+}
+
 .form-row {
     margin-bottom: 10px;
 }
@@ -139,7 +163,8 @@ button:disabled {
 }
 
 .status {
-    margin-top: 15px;
+    margin-top: 12px;
+    margin-bottom: 15px;
     padding: 10px;
     border: 1px solid #ccc;
     background: #fafafa;
@@ -189,6 +214,21 @@ body.authenticated .auth-screen {
 body:not(.authenticated) .admin-wrap {
     display: none;
 }
+
+@media (max-width: 640px) {
+    .section-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .section-header h2 {
+        text-align: center;
+    }
+
+    .publish-button {
+        width: 100%;
+    }
+}
 </style>
 </head>
 <body>
@@ -219,7 +259,12 @@ body:not(.authenticated) .admin-wrap {
 
     <p class="hidden-meta" id="draftMeta">Draft status hidden.</p>
 
-    <h2>Add Headline</h2>
+    <div class="section-header">
+        <h2>Add Headline</h2>
+        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
+    </div>
+
+    <div class="status" id="headlineStatus">Status: Ready.</div>
 
     <div class="form-row">
         <label for="headline">Headline</label>
@@ -252,7 +297,12 @@ body:not(.authenticated) .admin-wrap {
 
     <hr />
 
-    <h2>Add Video</h2>
+    <div class="section-header">
+        <h2>Add Video</h2>
+        <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
+    </div>
+
+    <div class="status" id="videoStatus">Status: Ready.</div>
 
     <div class="form-row">
         <label for="videoTitle">Video Title</label>
@@ -269,16 +319,6 @@ body:not(.authenticated) .admin-wrap {
     </div>
 
     <div id="videoList" class="story-list"></div>
-
-    <hr />
-
-    <div class="actions">
-        <button type="button" onclick="publishLive()">Publish Live</button>
-    </div>
-
-    <p class="note">Use the up and down arrows to reorder stories or videos. Changes are saved to the draft automatically.</p>
-
-    <div class="status" id="status">Status: Ready.</div>
 </div>
 
 <script>
@@ -345,7 +385,9 @@ function refreshAdminPage() {
 }
 
 function setStatus(message) {
-    document.getElementById("status").textContent = "Status: " + message;
+    const text = "Status: " + message;
+    document.getElementById("headlineStatus").textContent = text;
+    document.getElementById("videoStatus").textContent = text;
 }
 
 function setDraftMeta() {
