@@ -290,8 +290,11 @@ body:not(.authenticated) .admin-wrap {
         <input id="videoUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
     </div>
 
+    <input id="videoEditIndex" type="hidden" value="" />
+
     <div class="actions">
-        <button type="button" onclick="addVideo()">Add Video</button>
+        <button id="videoSubmitButton" type="button" onclick="addVideo()">Add Video</button>
+        <button id="cancelVideoEditButton" type="button" onclick="cancelVideoEdit()" style="display:none;">Cancel Edit</button>
         <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
     </div>
 
@@ -478,19 +481,24 @@ async function addStory() {
 async function addVideo() {
     const title = document.getElementById("videoTitle").value.trim();
     const url = document.getElementById("videoUrl").value.trim();
+    const editIndex = document.getElementById("videoEditIndex").value;
 
     if (!title || !url) {
         alert("Please enter both a video title and a YouTube URL.");
         return;
     }
 
-    videos.unshift({ title, url });
-    renderVideos();
+    if (editIndex !== "") {
+        videos[Number(editIndex)] = { title, url };
+        renderVideos();
+        await saveCloudDraft("Video updated and saved.");
+    } else {
+        videos.unshift({ title, url });
+        renderVideos();
+        await saveCloudDraft("Video added and saved.");
+    }
 
-    document.getElementById("videoTitle").value = "";
-    document.getElementById("videoUrl").value = "";
-
-    await saveCloudDraft("Video added and saved.");
+    cancelVideoEdit();
 }
 
 function renderStories() {
@@ -575,6 +583,11 @@ function renderVideos() {
         down.textContent = String.fromCharCode(8595);
         down.onclick = () => moveVideo(index, 1);
 
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.onclick = () => editVideo(index);
+
         const del = document.createElement("button");
         del.type = "button";
         del.textContent = "Delete";
@@ -583,7 +596,9 @@ function renderVideos() {
         item.appendChild(titleWrap);
         item.appendChild(up);
         item.appendChild(down);
+        item.appendChild(edit);
         item.appendChild(del);
+
         list.appendChild(item);
     });
 
@@ -613,6 +628,28 @@ function cancelHeadlineEdit() {
 
     document.getElementById("headlineSubmitButton").textContent = "Add Headline";
     document.getElementById("cancelHeadlineEditButton").style.display = "none";
+}
+
+function editVideo(index) {
+    const video = videos[index];
+
+    document.getElementById("videoTitle").value = video.title;
+    document.getElementById("videoUrl").value = video.url;
+
+    document.getElementById("videoEditIndex").value = index;
+    document.getElementById("videoSubmitButton").textContent = "Save Video";
+    document.getElementById("cancelVideoEditButton").style.display = "inline-block";
+
+    setStatus("Editing video. Make changes, then click Save Video.");
+}
+
+function cancelVideoEdit() {
+    document.getElementById("videoTitle").value = "";
+    document.getElementById("videoUrl").value = "";
+    document.getElementById("videoEditIndex").value = "";
+
+    document.getElementById("videoSubmitButton").textContent = "Add Video";
+    document.getElementById("cancelVideoEditButton").style.display = "none";
 }
 
 async function moveStory(index, direction) {
