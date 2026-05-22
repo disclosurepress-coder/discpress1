@@ -98,8 +98,16 @@ button:disabled {
     background: #7a0000;
 }
 
-.actions .publish-button {
+.skip-button {
     margin-left: auto;
+    background: #eef4ff;
+    border-color: #005bbb;
+    color: #003f88;
+    font-weight: bold;
+}
+
+.skip-button:hover {
+    background: #dbeaff;
 }
 
 .form-row {
@@ -207,8 +215,12 @@ body:not(.authenticated) .admin-wrap {
 }
 
 @media (max-width: 720px) {
-    .actions .publish-button {
+    .skip-button {
         margin-left: 0;
+        width: 100%;
+    }
+
+    .publish-button {
         width: 100%;
     }
 }
@@ -242,7 +254,7 @@ body:not(.authenticated) .admin-wrap {
 
     <p class="hidden-meta" id="draftMeta">Draft status hidden.</p>
 
-    <h2>Add Headline</h2>
+    <h2 id="headlineSection">Add Headline</h2>
     <div class="status" id="headlineStatus">Status: Ready.</div>
 
     <div class="form-row">
@@ -271,13 +283,14 @@ body:not(.authenticated) .admin-wrap {
         <button id="headlineSubmitButton" type="button" onclick="addStory()">Add Headline</button>
         <button id="cancelHeadlineEditButton" type="button" onclick="cancelHeadlineEdit()" style="display:none;">Cancel Edit</button>
         <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
+        <button type="button" class="skip-button" onclick="skipToVideoSection()">Skip to Video Section</button>
     </div>
 
     <div id="storyList" class="story-list"></div>
 
     <hr />
 
-    <h2>Add Video</h2>
+    <h2 id="videoSection">Add Video</h2>
     <div class="status" id="videoStatus">Status: Ready.</div>
 
     <div class="form-row">
@@ -296,6 +309,7 @@ body:not(.authenticated) .admin-wrap {
         <button id="videoSubmitButton" type="button" onclick="addVideo()">Add Video</button>
         <button id="cancelVideoEditButton" type="button" onclick="cancelVideoEdit()" style="display:none;">Cancel Edit</button>
         <button type="button" class="publish-button" onclick="publishLive()">Publish Live</button>
+        <button type="button" class="skip-button" onclick="skipToHeadlineSection()">Skip to Headline Section</button>
     </div>
 
     <div id="videoList" class="story-list"></div>
@@ -362,6 +376,20 @@ const SCOUT_WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.wor
 
 function refreshAdminPage() {
     window.location.reload();
+}
+
+function skipToVideoSection() {
+    document.getElementById("videoSection").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
+
+function skipToHeadlineSection() {
+    document.getElementById("headlineSection").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
 }
 
 function setStatus(message) {
