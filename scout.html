@@ -156,6 +156,70 @@ button:disabled {
     color: var(--muted);
 }
 
+.diagnostics {
+    display: none;
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    background: #fbfcfd;
+    padding: 14px;
+}
+
+.diagnostics.visible {
+    display: block;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.metric {
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 10px;
+}
+
+.metric-label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.source-list,
+.feed-list {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.source-list li,
+.feed-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid var(--line);
+    padding: 8px 0;
+    color: var(--muted);
+}
+
+.source-list strong,
+.feed-list strong {
+    color: var(--ink);
+}
+
+.diagnostic-heading {
+    margin: 16px 0 0;
+    font-size: 15px;
+}
+
 @media (max-width: 720px) {
     .topbar,
     .controls {
@@ -176,10 +240,12 @@ button:disabled {
             <h1 id="pageTitle">Disclosure Press Scout</h1>
             <div class="controls">
                 <button id="runScoutButton" type="button">Run Scout</button>
+                <button id="loadMetricsButton" class="secondary-button" type="button">Metrics</button>
             </div>
         </div>
 
         <div class="status" id="status" role="status">Ready.</div>
+        <div class="diagnostics" id="diagnostics" aria-live="polite"></div>
         <div class="results" id="results" aria-live="polite"></div>
     </section>
 </main>
@@ -190,10 +256,13 @@ const WORKER_URL = "https://disclosure-press-scout-api.disclosurepress.workers.d
 let currentResults = [];
 
 const runScoutButton = document.getElementById("runScoutButton");
+const loadMetricsButton = document.getElementById("loadMetricsButton");
 const statusBox = document.getElementById("status");
+const diagnosticsBox = document.getElementById("diagnostics");
 const resultsBox = document.getElementById("results");
 
 runScoutButton.addEventListener("click", runScout);
+loadMetricsButton.addEventListener("click", loadMetrics);
 
 function setStatus(message, isError = false) {
     statusBox.textContent = message;
@@ -209,6 +278,128 @@ function clearResults(message = "") {
         empty.textContent = message;
         resultsBox.appendChild(empty);
     }
+}
+
+function clearDiagnostics() {
+    diagnosticsBox.innerHTML = "";
+    diagnosticsBox.classList.remove("visible");
+}
+
+function metricTile(label, value) {
+    const tile = document.createElement("div");
+    tile.className = "metric";
+
+    const labelEl = document.createElement("span");
+    labelEl.className = "metric-label";
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement("span");
+    valueEl.className = "metric-value";
+    valueEl.textContent = value;
+
+    tile.append(labelEl, valueEl);
+    return tile;
+}
+
+function renderSourceList(title, sourceCounts) {
+    if (!Array.isArray(sourceCounts) || !sourceCounts.length) {
+        return null;
+    }
+
+    const heading = document.createElement("h3");
+    heading.className = "diagnostic-heading";
+    heading.textContent = title;
+
+    const list = document.createElement("ul");
+    list.className = "source-list";
+
+    sourceCounts.slice(0, 12).forEach(item => {
+        const row = document.createElement("li");
+        const source = document.createElement("strong");
+        source.textContent = item.source;
+        const count = document.createElement("span");
+        count.textContent = String(item.count);
+        row.append(source, count);
+        list.appendChild(row);
+    });
+
+    const fragment = document.createDocumentFragment();
+    fragment.append(heading, list);
+    return fragment;
+}
+
+function renderFeedList(feeds) {
+    if (!Array.isArray(feeds) || !feeds.length) {
+        return null;
+    }
+
+    const heading = document.createElement("h3");
+    heading.className = "diagnostic-heading";
+    heading.textContent = "Feed health";
+
+    const list = document.createElement("ul");
+    list.className = "feed-list";
+
+    feeds
+        .slice()
+        .sort((a, b) => (b.relevantCount || 0) - (a.relevantCount || 0) || a.name.localeCompare(b.name))
+        .slice(0, 12)
+        .forEach(feed => {
+            const row = document.createElement("li");
+            const name = document.createElement("strong");
+            name.textContent = feed.ok ? feed.name : `${feed.name} issue`;
+            const counts = document.createElement("span");
+            counts.textContent = feed.ok
+                ? `${feed.rawCount || 0} raw / ${feed.relevantCount || 0} relevant`
+                : feed.error || "Fetch failed";
+            row.append(name, counts);
+            list.appendChild(row);
+        });
+
+    const fragment = document.createDocumentFragment();
+    fragment.append(heading, list);
+    return fragment;
+}
+
+function renderDiagnostics(diagnostics, sourceCounts = []) {
+    diagnosticsBox.innerHTML = "";
+
+    if (!diagnostics || !diagnostics.totals) {
+        diagnosticsBox.classList.remove("visible");
+        return;
+    }
+
+    const totals = diagnostics.totals;
+    const grid = document.createElement("div");
+    grid.className = "metric-grid";
+
+    grid.append(
+        metricTile("Direct raw", totals.directRawCount || 0),
+        metricTile("Direct relevant", totals.directRelevantCount || 0),
+        metricTile("NewsAPI relevant", totals.newsRelevantCount || 0),
+        metricTile("Combined relevant", totals.combinedRelevantCount || 0),
+        metricTile("Seen filtered", totals.seenFilteredCount || 0),
+        metricTile("New returned", totals.returnedCount || 0)
+    );
+
+    diagnosticsBox.appendChild(grid);
+
+    const unseenSources = renderSourceList("New articles by source", sourceCounts);
+    if (unseenSources) {
+        diagnosticsBox.appendChild(unseenSources);
+    }
+
+    const combinedSources = renderSourceList("All relevant articles by source", diagnostics.combinedSourceCounts);
+    if (combinedSources) {
+        diagnosticsBox.appendChild(combinedSources);
+    }
+
+    const feeds = renderFeedList(diagnostics.feeds);
+    if (feeds) {
+        diagnosticsBox.appendChild(feeds);
+    }
+
+    diagnosticsBox.classList.add("visible");
 }
 
 function normalizeArticle(article) {
@@ -389,6 +580,54 @@ function dedupeArticles(articles) {
     });
 }
 
+async function loadMetrics() {
+    loadMetricsButton.disabled = true;
+    setStatus("Loading Scout metrics...");
+    clearDiagnostics();
+
+    try {
+        const data = await fetchJson(workerEndpoint("/metrics?limit=100"));
+        const windows = data.metrics?.windows || [];
+        const latest = data.metrics?.recentRuns?.[0];
+
+        diagnosticsBox.innerHTML = "";
+        const grid = document.createElement("div");
+        grid.className = "metric-grid";
+
+        windows.forEach(windowSummary => {
+            const label = windowSummary.hours === 24
+                ? "24h returned"
+                : windowSummary.hours === 168
+                    ? "7d returned"
+                    : "30d returned";
+            grid.appendChild(metricTile(label, windowSummary.returnedCount || 0));
+        });
+
+        if (latest) {
+            grid.append(
+                metricTile("Last run relevant", latest.totals?.combinedRelevantCount || 0),
+                metricTile("Last run seen", latest.totals?.seenFilteredCount || 0),
+                metricTile("Last run new", latest.totals?.returnedCount || 0)
+            );
+        }
+
+        diagnosticsBox.appendChild(grid);
+
+        const activeWindow = windows.find(item => item.hours === 168) || windows[0];
+        const sources = renderSourceList("Rolling source totals", activeWindow?.sourceCounts || []);
+        if (sources) {
+            diagnosticsBox.appendChild(sources);
+        }
+
+        diagnosticsBox.classList.add("visible");
+        setStatus(`Metrics loaded. ${data.metrics?.retainedRuns || 0} Scout run${data.metrics?.retainedRuns === 1 ? "" : "s"} retained.`);
+    } catch (error) {
+        setStatus(`Metrics error: ${error.message}`, true);
+    } finally {
+        loadMetricsButton.disabled = false;
+    }
+}
+
 async function runScout() {
     const workerUrl = WORKER_URL.trim();
 
@@ -400,10 +639,12 @@ async function runScout() {
     const requestUrl = new URL(workerUrl);
     requestUrl.searchParams.set("q", "all");
     requestUrl.searchParams.set("refresh", "1");
+    requestUrl.searchParams.set("debug", "1");
 
     runScoutButton.disabled = true;
     setStatus("Scanning sources...");
     clearResults();
+    clearDiagnostics();
 
     try {
         const response = await fetch(requestUrl.toString(), {
@@ -432,6 +673,7 @@ async function runScout() {
         currentResults = dedupeArticles(data.articles.map(normalizeArticle));
 
         renderResults(currentResults);
+        renderDiagnostics(data.diagnostics, data.sourceCounts);
         setStatus(`Scout complete. ${currentResults.length} new article${currentResults.length === 1 ? "" : "s"} found.`);
     } catch (error) {
         currentResults = [];
