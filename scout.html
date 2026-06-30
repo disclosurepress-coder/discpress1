@@ -361,6 +361,33 @@ function renderFeedList(feeds) {
     return fragment;
 }
 
+function renderNewsApiStatus(newsApi) {
+    if (!newsApi) {
+        return null;
+    }
+
+    const heading = document.createElement("h3");
+    heading.className = "diagnostic-heading";
+    heading.textContent = "NewsAPI status";
+
+    const list = document.createElement("ul");
+    list.className = "feed-list";
+
+    const row = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = newsApi.warning ? "NewsAPI issue" : "NewsAPI working";
+    const counts = document.createElement("span");
+    counts.textContent = newsApi.warning
+        ? newsApi.warning
+        : `${newsApi.rawCount || 0} raw / ${newsApi.recentCount || 0} recent / ${newsApi.relevantCount || 0} relevant`;
+    row.append(name, counts);
+    list.appendChild(row);
+
+    const fragment = document.createDocumentFragment();
+    fragment.append(heading, list);
+    return fragment;
+}
+
 function renderDiagnostics(diagnostics, sourceCounts = []) {
     diagnosticsBox.innerHTML = "";
 
@@ -376,6 +403,7 @@ function renderDiagnostics(diagnostics, sourceCounts = []) {
     grid.append(
         metricTile("Direct raw", totals.directRawCount || 0),
         metricTile("Direct relevant", totals.directRelevantCount || 0),
+        metricTile("NewsAPI raw", totals.newsRawCount || 0),
         metricTile("NewsAPI relevant", totals.newsRelevantCount || 0),
         metricTile("Combined relevant", totals.combinedRelevantCount || 0),
         metricTile("Seen filtered", totals.seenFilteredCount || 0),
@@ -383,6 +411,11 @@ function renderDiagnostics(diagnostics, sourceCounts = []) {
     );
 
     diagnosticsBox.appendChild(grid);
+
+    const newsApi = renderNewsApiStatus(diagnostics.newsApi);
+    if (newsApi) {
+        diagnosticsBox.appendChild(newsApi);
+    }
 
     const unseenSources = renderSourceList("New articles by source", sourceCounts);
     if (unseenSources) {
