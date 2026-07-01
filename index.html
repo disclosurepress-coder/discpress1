@@ -1090,8 +1090,21 @@ body {
 </div>
 </div>
 <!-- MOBILE VIDEO END -->
-   
+
+<script>
+document.querySelectorAll(".video").forEach(function(video) {
+    var img = video.querySelector("img.video-thumb");
+    var title = video.querySelector(".video-title");
+
+    if (img && title && !img.hasAttribute("alt")) {
+        img.setAttribute("alt", title.textContent.trim());
+    }
+});
+</script>
+    
 </body>
 
 </div>
+
+    
 </html>
