@@ -2,21 +2,21 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://disclosurepress.com/</loc>
-    <lastmod>2026-07-22T15:40:47.750Z</lastmod>
+    <lastmod>2026-07-22T23:39:46.288Z</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
     <loc>https://disclosurepress.com/scout.html</loc>
-    <lastmod>2026-07-22T15:40:47.750Z</lastmod>
+    <lastmod>2026-07-22T23:39:46.288Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
 
   <url>
     <loc>https://disclosurepress.com/feed.xml</loc>
-    <lastmod>2026-07-22T15:40:47.750Z</lastmod>
+    <lastmod>2026-07-22T23:39:46.288Z</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.3</priority>
   </url>
